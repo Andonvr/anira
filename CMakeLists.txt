@@ -20,6 +20,20 @@ option(ANIRA_WITH_TFLITE "Build with TensorFlow Lite backend" ON)
 option(ANIRA_WITH_LOGGING "Enable logging printouts" ON)
 option(ANIRA_WITH_RTSAN "Enable RealtimeSanitizer (rtan) checks (requires clang 20)" OFF)
 
+if(DEFINED EMSDK_VERSION)
+    set(DEFINED EMSDK_VERSION ON)
+    if(ANIRA_WITH_EXAMPLES)
+        message(FATAL_ERROR "WebAssembly support is not compatible with examples. Please disable ANIRA_WITH_EXAMPLES to build the library with WebAssembly support.")
+    elseif(ANIRA_WITH_TESTS)
+        message(FATAL_ERROR "WebAssembly support is not compatible with tests. Please disable ANIRA_WITH_TESTS to build the library with WebAssembly support.")
+    elseif(ANIRA_WITH_INSTALL)
+        message(FATAL_ERROR "WebAssembly support is not compatible with install targets. Please disable ANIRA_WITH_INSTALL to build the library with WebAssembly support.")
+    elseif(ANIRA_WITH_LIBTORCH)
+        message(FATAL_ERROR "Only the ONNX Runtime backend is supported for WebAssembly. Please set -DANIRA_WITH_LIBTORCH=OFF and enable ANIRA_WITH_ONNXRUNTIME to build the library with WebAssembly support.")
+    elseif(ANIRA_WITH_TFLITE)
+        message(FATAL_ERROR "Only the ONNX Runtime backend is supported for WebAssembly. Please set -DANIRA_WITH_TFLITE=OFF and enable ANIRA_WITH_ONNXRUNTIME to build the library with WebAssembly support.")
+    endif()
+endif()
 # ==============================================================================
 # Get project version from git
 # ==============================================================================
@@ -195,6 +209,7 @@ target_compile_definitions(${PROJECT_NAME}
     # Backend-specific definitions
     $<$<BOOL:${ANIRA_WITH_LIBTORCH}>:USE_LIBTORCH>
     $<$<BOOL:${ANIRA_WITH_ONNXRUNTIME}>:USE_ONNXRUNTIME>
+    $<$<BOOL:EMSDK_VERSION>:USE_ANIRA_WEB>
     $<$<BOOL:${ANIRA_WITH_TFLITE}>:USE_TFLITE>
     $<$<BOOL:${ANIRA_WITH_LOGGING}>:ENABLE_LOGGING>
     # Version number
@@ -232,7 +247,12 @@ endif()
 
 # The onnxruntime library requires PUBLIC linking because otherwise "_OrtGetApiBase" symbol is not found
 if(ANIRA_WITH_ONNXRUNTIME)
-    target_link_libraries(${PROJECT_NAME} PUBLIC onnxruntime)
+    if(EMSDK_VERSION)
+        target_include_directories(${PROJECT_NAME} PUBLIC ${ANIRA_ONNXRUNTIME_SHARED_LIB_PATH})
+        target_link_libraries(${PROJECT_NAME} PUBLIC ${ANIRA_ONNXRUNTIME_SHARED_LIB_PATH}/libonnxruntime_webassembly.a)
+    else()
+        target_link_libraries(${PROJECT_NAME} PUBLIC onnxruntime)
+    endif()
 endif()
 
 if(ANIRA_WITH_TFLITE)
