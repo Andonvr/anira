@@ -17,7 +17,7 @@ else()
 
     if(EMSDK_VERSION)
         set(LIB_ONNXRUNTIME_PRE_BUILD_LIB_NAME "onnx-v${LIBONNXRUNTIME_VERSION}-emsdk-${EMSDK_VERSION}")
-        set(LIBONNXRUNTIME_URL "https://github.com/Andonvr/onnxruntime-static-wasm/releases/download/v${LIBONNXRUNTIME_VERSION}/${LIB_ONNXRUNTIME_PRE_BUILD_LIB_NAME}.zip")
+        set(LIBONNXRUNTIME_URL "https://github.com/Andonvr/ONNXRuntime-Static-WASM-Builds/releases/download/v${LIBONNXRUNTIME_VERSION}/${LIB_ONNXRUNTIME_PRE_BUILD_LIB_NAME}.zip")
     else()
         if(WIN32)
             set(LIB_ONNXRUNTIME_PRE_BUILD_LIB_NAME "onnxruntime-win-x64-${LIBONNXRUNTIME_VERSION}")
