@@ -222,6 +222,15 @@ public:
      */
     static moodycamel::ProducerToken& get_producer_token();
 
+    /**
+     * @brief Get a reference to the static inference queue
+     * Returns a reference to the global concurrent queue used for inference requests.
+     * This is used by WasmInferenceThread to pre-allocate a ConsumerToken on the
+     * main thread, enabling allocation-free dequeue from worker threads.
+     * @return Reference to the static inference queue
+     */
+    static moodycamel::ConcurrentQueue<InferenceData>& get_static_inference_queue();
+
 private:
     /**
      * @brief Gets the next available session ID
