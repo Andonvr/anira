@@ -17,6 +17,8 @@ option(ANIRA_WITH_LIBTORCH "Build with LibTorch backend" ON)
 option(ANIRA_WITH_ONNXRUNTIME "Build with ONNX Runtime backend" ON)
 option(ANIRA_WITH_TFLITE "Build with TensorFlow Lite backend" ON)
 
+option(ANIRA_BUILD_WASM "Build WebAssembly module (requires Emscripten toolchain)" OFF)
+
 option(ANIRA_WITH_LOGGING "Enable logging printouts" ON)
 option(ANIRA_WITH_RTSAN "Enable RealtimeSanitizer (rtan) checks (requires clang 20)" OFF)
 
@@ -99,6 +101,12 @@ endif ()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+# Detect Emscripten — must be after project() so CMAKE_CXX_COMPILER is set.
+# EMSDK_VERSION is needed by SetupOnnxRuntime.cmake below.
+if(ANIRA_BUILD_WASM)
+    include(cmake/DetectEmscripten.cmake)
+endif()
 
 # ==============================================================================
 # Download and install the selected inference engines
@@ -303,4 +311,12 @@ endif()
 
 if (ANIRA_WITH_DOCS)
     add_subdirectory(docs)
+endif()
+
+# ==============================================================================
+# Build WebAssembly module (optional, requires Emscripten)
+# ==============================================================================
+
+if(ANIRA_BUILD_WASM)
+    include(cmake/BuildWasm.cmake)
 endif()

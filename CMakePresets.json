@@ -1,0 +1,52 @@
+{
+  "version": 4,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 15,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "web",
+      "description": "Build AniraJS WASM module (debug)",
+      "hidden": false,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": {
+        "ANIRA_BUILD_WASM": "ON",
+        "ANIRA_WITH_LIBTORCH": "OFF",
+        "ANIRA_WITH_TFLITE": "OFF",
+        "ANIRA_WITH_ONNXRUNTIME": "ON",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "web-prod",
+      "description": "Build AniraJS WASM module (release)",
+      "hidden": false,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": {
+        "ANIRA_BUILD_WASM": "ON",
+        "ANIRA_WITH_LIBTORCH": "OFF",
+        "ANIRA_WITH_TFLITE": "OFF",
+        "ANIRA_WITH_ONNXRUNTIME": "ON",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "web",
+      "configurePreset": "web",
+      "description": "Build AniraJS WASM module (debug)"
+    },
+    {
+      "name": "web-prod",
+      "configurePreset": "web-prod",
+      "description": "Build AniraJS WASM module (release)"
+    }
+  ]
+}

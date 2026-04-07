@@ -1,12 +1,16 @@
 .idea*
 *.DS_Store
 /build/
+/out/
 modules/
 cmake-build*
 .vscode
 logs/
 results/
 venv/
+js/wasm/
+js/dist/
+js/node_modules/
 extras/models/stateful-rnn/stateful-lstm/
 extras/models/hybrid-nn/GuitarLSTM/
 extras/models/cnn/steerable-nafx/

@@ -1,0 +1,65 @@
+import { type AniraWasmInstance } from '../factory'
+import { BaseWrapper } from './BaseWrapper'
+
+/**
+ * TypeScript wrapper for anira::ModelData
+ * Thread-safe C API wrapper
+ */
+export class ModelData extends BaseWrapper {
+  constructor(
+    wasmInstance: AniraWasmInstance,
+    bufferOrPath: ArrayBuffer | string,
+    backend: number
+  ) {
+    if (bufferOrPath instanceof ArrayBuffer) {
+      const buffer = bufferOrPath
+
+      const bufferPtr = wasmInstance._malloc(buffer.byteLength)
+      const heapView = new Uint8Array(
+        wasmInstance.HEAPU32.buffer,
+        bufferPtr,
+        buffer.byteLength
+      )
+      heapView.set(new Uint8Array(buffer))
+
+      const ptr = wasmInstance._modeldata_create_from_buffer(
+        bufferPtr,
+        buffer.byteLength,
+        backend
+      )
+
+      wasmInstance._free(bufferPtr)
+      super(wasmInstance, ptr)
+    } else {
+      const modelPath = bufferOrPath
+
+      const pathPtr = wasmInstance._malloc(modelPath.length + 1)
+      const heapView = new Uint8Array(
+        wasmInstance.HEAPU32.buffer,
+        pathPtr,
+        modelPath.length + 1
+      )
+      heapView.set(new TextEncoder().encode(modelPath + '\0'))
+
+      const ptr = wasmInstance._modeldata_create_from_path(pathPtr, backend)
+      wasmInstance._free(pathPtr)
+      super(wasmInstance, ptr)
+    }
+  }
+
+  destroy(): void {
+    this._destroy(this.wasmInstance._modeldata_destroy)
+  }
+
+  getSize(): number {
+    return this.wasmInstance._modeldata_get_size(this.ptr)
+  }
+
+  isBinary(): boolean {
+    return this.wasmInstance._modeldata_get_is_binary(this.ptr) !== 0
+  }
+
+  getDataPtr(): number {
+    return this.wasmInstance._modeldata_get_data_ptr(this.ptr)
+  }
+}

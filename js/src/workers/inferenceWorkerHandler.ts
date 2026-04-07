@@ -1,0 +1,131 @@
+import { AniraJS } from '../AniraJS'
+import { ONNXRuntimeWebBackend } from '../backends/ONNXRuntimeWebBackend'
+import type { AniraWasmConfig } from '../factory'
+import { createFactory } from '../utils'
+import type { JSBackendBase } from '../backends'
+import type {
+  InferenceWorkerMessage,
+  ProcessorRegisteredResponse,
+  ReadyRespose,
+  StoppedResponse,
+} from './messages'
+import { WasmInferenceThread } from '../wrappers/system/WasmInferenceThread'
+
+/**
+ * Map from class name to class constructor.
+ * The handler uses this to instantiate the correct subclass when
+ * `className` is provided in a `registerProcessor` message.
+ */
+export type ProcessorClassMap = Record<string, typeof JSBackendBase>
+
+export type AniraCreateFn = (
+  config?: AniraWasmConfig & Record<string, unknown>,
+  memory?: WebAssembly.Memory
+) => Promise<AniraJS>
+
+/**
+ * Set up the inference worker message handler.
+ *
+ * Call this at the top level of your worker file, passing any custom
+ * processor subclasses the worker should know about:
+ *
+ * ```ts
+ * // my-inference-worker.ts
+ * import { setupInferenceWorker } from './inferenceWorkerHandler'
+ * import { CustomJSBackend } from '../custom-js-backend'
+ *
+ * setupInferenceWorker({ CustomJSBackend })
+ * ```
+ *
+ * When used with a different WASM build (e.g. benchmarks), pass a matching
+ * factory function so the worker instantiates the correct WASM module:
+ *
+ * ```ts
+ * import { setupInferenceWorker } from 'anira-js'
+ * import { AniraBenchmarkJS } from 'anira-js-benchmarks'
+ *
+ * setupInferenceWorker({}, (config, memory) => AniraBenchmarkJS.create(config, memory))
+ * ```
+ */
+export const setupInferenceWorker = (
+  customProcessorClasses: ProcessorClassMap = {},
+  createAnira: AniraCreateFn = (config, memory) => AniraJS.create(config, memory)
+) => {
+  const processorClasses: ProcessorClassMap = {
+    ONNXRuntimeWebBackend,
+    ...customProcessorClasses,
+  }
+  let aniraJS: AniraJS
+  let thread: WasmInferenceThread
+  const processorRegistry = new Map<number, JSBackendBase>()
+
+  self.onmessage = async (e: MessageEvent<InferenceWorkerMessage>) => {
+    switch (e.data.type) {
+      case 'initInferenceWorker': {
+        const { threadPtr, wasmMemory, stackPtr } = e.data
+
+        aniraJS = await createAnira(
+          {
+            processBuffers: (
+              processorPtr: number,
+              inputPtr: number,
+              outputPtr: number
+            ) => {
+              const processor = processorRegistry.get(processorPtr)
+              if (!processor) {
+                throw new Error(
+                  `JSProcessor with pointer ${processorPtr} is not registered in this worker. ` +
+                    `Call registerProcessor() before starting inference.`
+                )
+              }
+              processor.process(inputPtr, outputPtr)
+            },
+          },
+          wasmMemory
+        )
+        aniraJS.stackRestore(stackPtr)
+
+        const t = aniraJS.WasmInferenceThread.fromPointer(threadPtr)
+        if (!t) return
+        thread = t
+
+        postMessage({ type: 'ready' } satisfies ReadyRespose)
+        break
+      }
+
+      case 'registerProcessor': {
+        const { processorPtr, className, inferenceConfigPtr } = e.data
+        if (!processorRegistry.has(processorPtr)) {
+          let instance: JSBackendBase
+          if (className && processorClasses[className]) {
+            const factory = createFactory(
+              aniraJS.getWasmInstance(),
+              processorClasses[className]
+            )
+            instance = factory.fromPointer(processorPtr)
+          } else {
+            instance = aniraJS.JSBackendBase.fromPointer(processorPtr)
+          }
+          if (inferenceConfigPtr) {
+            instance.inferenceConfigPtr = inferenceConfigPtr
+          }
+          await instance.init()
+          processorRegistry.set(processorPtr, instance)
+        }
+        postMessage({ type: 'processorRegistered' } satisfies ProcessorRegisteredResponse)
+        break
+      }
+
+      case 'start': {
+        thread.runLoop()
+        postMessage({ type: 'stopped' } satisfies StoppedResponse)
+        break
+      }
+
+      case 'destroy': {
+        close()
+        break
+      }
+    }
+  }
+}
