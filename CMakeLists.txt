@@ -43,16 +43,23 @@ endif()
 execute_process(COMMAND git describe --dirty
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 OUTPUT_VARIABLE PROJECT_VERSION_FULL
-                OUTPUT_STRIP_TRAILING_WHITESPACE)
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                RESULT_VARIABLE GIT_DESCRIBE_RESULT)
 
 execute_process(COMMAND git describe --tags --abbrev=0
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 OUTPUT_VARIABLE PROJECT_VERSION_SHORT
                 OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-# Retrive the v from the short version string
-string(SUBSTRING ${PROJECT_VERSION_SHORT} 1 -1 PROJECT_VERSION_SHORT)
-string(SUBSTRING ${PROJECT_VERSION_FULL} 1 -1 PROJECT_VERSION_FULL)
+if(GIT_DESCRIBE_RESULT EQUAL 0 AND PROJECT_VERSION_SHORT)
+  # Retrieve the v from the short version string
+  string(SUBSTRING ${PROJECT_VERSION_SHORT} 1 -1 PROJECT_VERSION_SHORT)
+  string(SUBSTRING ${PROJECT_VERSION_FULL} 1 -1 PROJECT_VERSION_FULL)
+else()
+  set(PROJECT_VERSION_SHORT "0.0.0")
+  set(PROJECT_VERSION_FULL "0.0.0-unknown")
+  message(WARNING "git describe failed - no tags found. Using fallback version ${PROJECT_VERSION_SHORT}")
+endif()
 
 # ==============================================================================
 # Setup the project

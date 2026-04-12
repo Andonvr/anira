@@ -223,14 +223,19 @@ export class ONNXRuntimeWebBackend extends JSBackendBase {
     this.outputMeta = this.queryMetadata(ort, inputCount, outputCount)
 
     // --- Warm-up inference (non-fatal, matches C++ behaviour) ---
-    const warmUp = config.getWarmUp()
-    for (let i = 0; i < warmUp; i++) {
-      try {
-        const inputs = this.createZeroInputs()
-        const outputs = this.runOrt(inputs)
-        for (const t of outputs) if (t !== 0) ort._OrtReleaseTensor(t)
-      } catch {
-        break
+    // Skip warm-up when any input has dynamic dims — we can't construct a
+    // valid concrete shape without actual buffer data.
+    const hasDynamicDims = this.inputMeta.some((m) => m.dims.includes(-1))
+    if (!hasDynamicDims) {
+      const warmUp = config.getWarmUp()
+      for (let i = 0; i < warmUp; i++) {
+        try {
+          const inputs = this.createZeroInputs()
+          const outputs = this.runOrt(inputs)
+          for (const t of outputs) if (t !== 0) ort._OrtReleaseTensor(t)
+        } catch {
+          break
+        }
       }
     }
   }
@@ -275,12 +280,15 @@ export class ONNXRuntimeWebBackend extends JSBackendBase {
           }
         }
 
+        // Resolve dynamic dims (-1) from actual buffer dimensions
+        const concreteDims = this.resolveDynamicDims(meta.dims, totalFloats)
+
         const stack = ort.stackSave()
-        const dimsOff = ort.stackAlloc(meta.dims.length * ort.PTR_SIZE)
-        for (let d = 0; d < meta.dims.length; d++) {
+        const dimsOff = ort.stackAlloc(concreteDims.length * ort.PTR_SIZE)
+        for (let d = 0; d < concreteDims.length; d++) {
           ort.setValue(
             dimsOff + d * ort.PTR_SIZE,
-            meta.dims[d],
+            concreteDims[d],
             ort.PTR_SIZE === 4 ? 'i32' : 'i64'
           )
         }
@@ -289,7 +297,7 @@ export class ONNXRuntimeWebBackend extends JSBackendBase {
           dataOff,
           byteLen,
           dimsOff,
-          meta.dims.length,
+          concreteDims.length,
           1
         )
         ort.stackRestore(stack)
@@ -362,6 +370,26 @@ export class ONNXRuntimeWebBackend extends JSBackendBase {
 
   // ---- private helpers ----
 
+  /**
+   * Replace any dynamic dims (-1) with concrete values inferred from the
+   * total number of elements. Only a single dynamic dim is supported.
+   */
+  private resolveDynamicDims(dims: number[], totalElements: number): number[] {
+    const dynamicCount = dims.filter((d) => d === -1).length
+    if (dynamicCount === 0) return dims
+
+    if (dynamicCount > 1) {
+      throw new Error(
+        `ONNXRuntimeWebBackend: cannot resolve ${dynamicCount} dynamic dims — at most 1 is supported`
+      )
+    }
+
+    const staticProduct = dims.reduce((a, d) => (d === -1 ? a : a * d), 1)
+    const inferred = Math.floor(totalElements / staticProduct)
+
+    return dims.map((d) => (d === -1 ? inferred : d))
+  }
+
   private queryMetadata(
     ort: OrtWasmModule,
     startIndex: number,
@@ -398,12 +426,28 @@ export class ONNXRuntimeWebBackend extends JSBackendBase {
         const dimsCount = ort.HEAPU32[(metadataPtr >> 2) + 1]
         const dims: number[] = []
         for (let d = 0; d < dimsCount; d++) {
-          dims.push(
-            Number(ort.getValue(metadataPtr + 8 + (d + dimsCount) * ptrSize, '*'))
+          // ORT metadata has two arrays of dimsCount entries each:
+          //   [symbolic name ptrs...][numeric dim values...]
+          // For dynamic dims, the symbolic name ptr is non-zero and the
+          // numeric slot is undefined. Use -1 for dynamic dims.
+          const symbolicNamePtr = Number(
+            ort.getValue(metadataPtr + 8 + d * ptrSize, '*')
           )
+          if (symbolicNamePtr !== 0) {
+            dims.push(-1)
+          } else {
+            dims.push(
+              Number(ort.getValue(metadataPtr + 8 + (d + dimsCount) * ptrSize, '*'))
+            )
+          }
         }
 
-        result.push({ namePtr, dims, flatSize: dims.reduce((a, b) => a * b, 1) })
+        const staticDims = dims.filter((d) => d > 0)
+        const flatSize =
+          staticDims.length === dims.length
+            ? staticDims.reduce((a, b) => a * b, 1)
+            : 0
+        result.push({ namePtr, dims, flatSize })
       } finally {
         ort.stackRestore(stack)
         if (metadataPtr !== 0) ort._OrtFree(metadataPtr)
@@ -418,16 +462,19 @@ export class ONNXRuntimeWebBackend extends JSBackendBase {
     const tensors: number[] = []
 
     for (const meta of this.inputMeta) {
-      const byteLen = meta.flatSize * 4
+      // For warm-up, replace dynamic dims (-1) with 1
+      const concreteDims = meta.dims.map((d) => (d === -1 ? 1 : d))
+      const flatSize = concreteDims.reduce((a, b) => a * b, 1)
+      const byteLen = flatSize * 4
       const dataOff = ort._malloc(byteLen)
       ort.HEAPU8.fill(0, dataOff, dataOff + byteLen)
 
       const stack = ort.stackSave()
-      const dimsOff = ort.stackAlloc(meta.dims.length * ort.PTR_SIZE)
-      for (let d = 0; d < meta.dims.length; d++) {
+      const dimsOff = ort.stackAlloc(concreteDims.length * ort.PTR_SIZE)
+      for (let d = 0; d < concreteDims.length; d++) {
         ort.setValue(
           dimsOff + d * ort.PTR_SIZE,
-          meta.dims[d],
+          concreteDims[d],
           ort.PTR_SIZE === 4 ? 'i32' : 'i64'
         )
       }
@@ -436,7 +483,7 @@ export class ONNXRuntimeWebBackend extends JSBackendBase {
         dataOff,
         byteLen,
         dimsOff,
-        meta.dims.length,
+        concreteDims.length,
         1
       )
       ort.stackRestore(stack)
