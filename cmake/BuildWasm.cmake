@@ -10,8 +10,6 @@ set(ANIRA_WASM_TARGET_NAME "AniraJS")
 set(ANIRA_WASM_OUTPUT_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/js/wasm")
 message(STATUS "Building AniraJS WASM module...")
 
-set(ANIRA_WASM_EXPORTED_FUNCTIONS "\"_free\",\"_malloc\"")
-
 # Set flags if Debug
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
   set(ANIRA_WASM_DEBUG_FLAGS "-O0 -gsource-map")
@@ -33,6 +31,12 @@ set(ANIRA_WASM_WRAPPER_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/emscripten-wrappers/PrePostProcessor.cpp
 )
 
+# Static library of WASM wrappers — linkable by AniraJS and external WASM targets
+add_library(anira_wasm_wrappers STATIC ${ANIRA_WASM_WRAPPER_SOURCES})
+target_link_libraries(anira_wasm_wrappers PUBLIC anira::anira)
+target_compile_features(anira_wasm_wrappers PUBLIC cxx_std_20)
+add_library(anira::wasm_wrappers ALIAS anira_wasm_wrappers)
+
 set(ANIRA_WASM_LINK_FLAGS "\
   --no-entry \
   --emit-tsd=${ANIRA_WASM_OUTPUT_FOLDER}/${ANIRA_WASM_TARGET_NAME}.d.ts \
@@ -48,13 +52,19 @@ set(ANIRA_WASM_LINK_FLAGS "\
   -s ASSERTIONS=1 \
   -s NO_DISABLE_EXCEPTION_CATCHING \
   -s STACK_SIZE=33554432 \
-  -s EXPORTED_FUNCTIONS='[${ANIRA_WASM_EXPORTED_FUNCTIONS}]' \
+  -s EXPORTED_FUNCTIONS='[\"_free\",\"_malloc\"]' \
+  -s EXPORT_KEEPALIVE=1 \
   -s EXPORTED_RUNTIME_METHODS='[\"UTF8ToString\",\"HEAPU32\",\"HEAPF32\",\"stackSave\",\"stackRestore\"]' \
   ")
 
-add_executable(${ANIRA_WASM_TARGET_NAME} ${ANIRA_WASM_WRAPPER_SOURCES})
+# CMake requires at least one source file for add_executable.
+# This is a --no-entry Emscripten module so there is no main();
+# all symbols come from the linked anira_wasm_wrappers static lib.
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/anirajs_stub.cpp" "")
+add_executable(${ANIRA_WASM_TARGET_NAME} "${CMAKE_CURRENT_BINARY_DIR}/anirajs_stub.cpp")
 
-target_link_libraries(${ANIRA_WASM_TARGET_NAME} PUBLIC anira::anira)
+target_link_libraries(${ANIRA_WASM_TARGET_NAME} PUBLIC
+    -Wl,--whole-archive anira::wasm_wrappers -Wl,--no-whole-archive)
 target_compile_features(${ANIRA_WASM_TARGET_NAME} PUBLIC cxx_std_20)
 
 set_target_properties(${ANIRA_WASM_TARGET_NAME} PROPERTIES
@@ -62,8 +72,3 @@ set_target_properties(${ANIRA_WASM_TARGET_NAME} PROPERTIES
   LINK_FLAGS "${ANIRA_WASM_DEBUG_FLAGS} ${ANIRA_WASM_LINK_FLAGS}"
   RUNTIME_OUTPUT_DIRECTORY ${ANIRA_WASM_OUTPUT_FOLDER}
 )
-
-# Export wrapper sources for consumers that need to build extended WASM targets
-# (e.g. benchmarks that include these wrappers plus additional sources)
-set(ANIRA_WASM_WRAPPER_SOURCES ${ANIRA_WASM_WRAPPER_SOURCES} PARENT_SCOPE)
-set(ANIRA_WASM_OUTPUT_FOLDER ${ANIRA_WASM_OUTPUT_FOLDER} PARENT_SCOPE)

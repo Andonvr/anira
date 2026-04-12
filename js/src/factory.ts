@@ -1,6 +1,7 @@
 import AniraJSFactory from '../wasm/AniraJS'
-import jsUrl from '../wasm/AniraJS.js?url&no-inline'
-import wasmUrl from '../wasm/AniraJS.wasm?url&no-inline'
+
+const jsUrl = new URL('../wasm/AniraJS.js', import.meta.url).href
+const wasmUrl = new URL('../wasm/AniraJS.wasm', import.meta.url).href
 
 export { wasmUrl }
 

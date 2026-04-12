@@ -30,6 +30,14 @@ function preserveWorkerUrls(): Plugin {
       sourcePath: './workers/audio-worklet.bundled.js',
       builtEntry: 'workers/audio-worklet.bundled.js',
     },
+    {
+      sourcePath: '../wasm/AniraJS.js',
+      builtEntry: 'wasm/AniraJS.js',
+    },
+    {
+      sourcePath: '../wasm/AniraJS.wasm',
+      builtEntry: 'wasm/AniraJS.wasm',
+    },
   ]
 
   return {
@@ -95,29 +103,28 @@ function bundleAudioWorklet(): Plugin {
       const distDir = path.resolve(__dirname, 'dist')
       const workletEntry = path.resolve(distDir, 'workers/audio-worklet.js')
 
-      // Rollup plugin to handle Vite-specific import specifiers (?url&no-inline)
-      // that raw Rollup can't resolve.
-      const resolveWasmImports = {
-        name: 'resolve-wasm-imports',
-        resolveId(source: string) {
-          // The WASM URL imports are unused in worklet context (wasmBinary is
-          // always provided via postMessage), so stub them out.
-          if (source.endsWith('?url&no-inline')) return source
-          return null
-        },
-        load(id: string) {
-          if (id.endsWith('?url&no-inline')) return 'export default ""'
-          return null
+      // Stub out new URL() asset references that the AudioWorkletGlobalScope
+      // can't resolve (no URL constructor). The worklet receives wasmBinary
+      // via postMessage, so these URLs are never used at runtime.
+      const stubWasmUrls = {
+        name: 'stub-wasm-urls',
+        renderChunk(code: string) {
+          const result = code.replace(
+            /new URL\(["'][^"']*["'],\s*import\.meta\.url\)\.href/g,
+            '""'
+          )
+          return result !== code ? result : null
         },
       }
 
       const bundle = await rollup({
         input: workletEntry,
-        plugins: [resolveWasmImports],
+        plugins: [stubWasmUrls],
       })
       await bundle.write({
         file: path.resolve(distDir, 'workers/audio-worklet.bundled.js'),
         format: 'es',
+        inlineDynamicImports: true,
       })
       await bundle.close()
     },
@@ -134,7 +141,6 @@ export default defineConfig({
       targets: [
         { src: 'wasm/*.wasm', dest: 'wasm' },
         { src: 'wasm/*.js', dest: 'wasm' },
-        { src: 'wasm/*.wasm.map', dest: 'wasm' },
       ],
     }),
     dts({

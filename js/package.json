@@ -34,7 +34,7 @@
   "devDependencies": {
     "rollup": "^4.60.0",
     "typescript": "~5.9.3",
-    "vite": "^7.3.1",
+    "vite": "^8.0.8",
     "vite-plugin-dts": "^4.5.4",
     "vite-plugin-static-copy": "^3.2.0"
   },

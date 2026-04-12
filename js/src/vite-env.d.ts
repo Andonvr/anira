@@ -5,16 +5,6 @@ declare module '*.wasm?url' {
   export default url
 }
 
-declare module '*.wasm?url&no-inline' {
-  const url: string
-  export default url
-}
-
-declare module '*.js?url&no-inline' {
-  const url: string
-  export default url
-}
-
 declare module 'onnxruntime-web/ort-wasm-simd-threaded.mjs' {
   const factory: (config?: Record<string, unknown>) => Promise<unknown>
   export default factory
