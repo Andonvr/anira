@@ -2,7 +2,7 @@ import { JSBackendBase } from './backends'
 import { ONNXRuntimeWebBackend } from './backends/ONNXRuntimeWebBackend'
 import {
   createAniraWasm,
-  wasmUrl,
+  getWasmUrl,
   type AniraWasmConfig,
   type AniraWasmInstance,
 } from './factory'
@@ -223,7 +223,7 @@ export class AniraJS {
 
   protected async ensureWasmBinary(): Promise<ArrayBuffer> {
     if (!this.wasmBinary) {
-      const res = await fetch(wasmUrl)
+      const res = await fetch(getWasmUrl())
       this.wasmBinary = await res.arrayBuffer()
     }
     return this.wasmBinary

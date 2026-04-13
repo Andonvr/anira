@@ -1,9 +1,14 @@
 import AniraJSFactory from '../wasm/AniraJS'
 
-const jsUrl = new URL('../wasm/AniraJS.js', import.meta.url).href
-const wasmUrl = new URL('../wasm/AniraJS.wasm', import.meta.url).href
+// Lazy-evaluated so the module can be imported in AudioWorkletGlobalScope
+// where URL may not be available. The URLs are only needed on the main thread.
+let _jsUrl: string | undefined
+let _wasmUrl: string | undefined
 
-export { wasmUrl }
+const getJsUrl = () => (_jsUrl ??= new URL('../wasm/AniraJS.js', import.meta.url).href)
+const getWasmUrl = () => (_wasmUrl ??= new URL('../wasm/AniraJS.wasm', import.meta.url).href)
+
+export { getWasmUrl }
 
 export type AniraWasmConfig = {
   processBuffers?: (processorPtr: number, inputPtr: number, outputPtr: number) => void
@@ -31,10 +36,10 @@ export const createAniraWasm = async (
     wasmMemory,
     locateFile: (path: string) => {
       if (path.endsWith('.wasm')) {
-        return wasmUrl
+        return getWasmUrl()
       }
       if (path.endsWith('.js')) {
-        return jsUrl
+        return getJsUrl()
       }
       return path
     },
