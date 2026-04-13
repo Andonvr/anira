@@ -204,6 +204,11 @@ size_t vector_ring_buffer_size(uintptr_t ptr) {
     return reinterpret_cast<std::vector<anira::RingBuffer>*>(ptr)->size();
 }
 
+EMSCRIPTEN_KEEPALIVE
+uintptr_t vector_ring_buffer_get(uintptr_t ptr, size_t index) {
+    return reinterpret_cast<uintptr_t>(&(*reinterpret_cast<std::vector<anira::RingBuffer>*>(ptr))[index]);
+}
+
 // ------ VectorBufferF ----
 EMSCRIPTEN_KEEPALIVE
 uintptr_t vector_buffer_f_create() {

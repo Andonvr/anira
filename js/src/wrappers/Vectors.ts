@@ -257,6 +257,14 @@ export class VectorRingBuffer extends VectorBase {
   push(item: BaseWrapper | number): void {
     this.wasmInstance._vector_ring_buffer_push_back(this.ptr, resolvePtr(item))
   }
+
+  /**
+   * Get a non-owning pointer to the element at `index`.
+   * The returned pointer is valid only while this vector is alive.
+   */
+  get(index: number): number {
+    return this.wasmInstance._vector_ring_buffer_get(this.ptr, index)
+  }
 }
 
 /**
