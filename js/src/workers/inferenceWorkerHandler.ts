@@ -9,7 +9,7 @@ import type {
   ReadyRespose,
   StoppedResponse,
 } from './messages'
-import { WasmInferenceThread } from '../wrappers/system/WasmInferenceThread'
+import { InferenceThread } from '../wrappers/system/InferenceThread'
 
 /**
  * Map from class name to class constructor.
@@ -56,7 +56,7 @@ export const setupInferenceWorker = (
     ...customProcessorClasses,
   }
   let aniraJS: AniraJS
-  let thread: WasmInferenceThread
+  let thread: InferenceThread
   const processorRegistry = new Map<number, JSBackendBase>()
 
   self.onmessage = async (e: MessageEvent<InferenceWorkerMessage>) => {
@@ -85,7 +85,7 @@ export const setupInferenceWorker = (
         )
         aniraJS.stackRestore(stackPtr)
 
-        const t = aniraJS.WasmInferenceThread.fromPointer(threadPtr)
+        const t = aniraJS.InferenceThread.fromPointer(threadPtr)
         if (!t) return
         thread = t
 

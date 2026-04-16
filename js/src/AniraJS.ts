@@ -41,7 +41,7 @@ import {
   type InferenceBackendValues,
 } from './wrappers'
 import { resolvePtr, type PossiblePointer } from './wrappers/BaseWrapper'
-import { WasmInferenceThread } from './wrappers/system/WasmInferenceThread'
+import { InferenceThread } from './wrappers/system/InferenceThread'
 
 export type ConfigureAudioWorkletIOOptions = Partial<AudioWorkletIOConfig> & {
   /**
@@ -89,7 +89,7 @@ export class AniraJS {
   ProcessingSpec: Factory<typeof ProcessingSpec>
   RingBuffer: Factory<typeof RingBuffer>
   TensorShape: Factory<typeof TensorShape>
-  WasmInferenceThread: Factory<typeof WasmInferenceThread>
+  InferenceThread: Factory<typeof InferenceThread>
   VectorBufferF: Factory<typeof VectorBufferF>
   VectorFloat: Factory<typeof VectorFloat>
   VectorInt64T: Factory<typeof VectorInt64T>
@@ -181,7 +181,7 @@ export class AniraJS {
     this.ProcessingSpec = createFactory(module, ProcessingSpec)
     this.RingBuffer = createFactory(module, RingBuffer)
     this.TensorShape = createFactory(module, TensorShape)
-    this.WasmInferenceThread = createFactory(module, WasmInferenceThread)
+    this.InferenceThread = createFactory(module, InferenceThread)
     this.VectorBufferF = createFactory(module, VectorBufferF)
     this.VectorFloat = createFactory(module, VectorFloat)
     this.VectorInt64T = createFactory(module, VectorInt64T)
@@ -269,7 +269,7 @@ export class AniraJS {
   }
 
   async spinUpInferenceWorker(workerOrUrl?: Worker | URL): Promise<InferenceWorker> {
-    const inferenceThread = this.WasmInferenceThread()
+    const inferenceThread = this.InferenceThread()
 
     const inferenceStackPtr = this.allocateWorkerStack()
     let worker: Worker

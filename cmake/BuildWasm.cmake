@@ -18,7 +18,7 @@ else()
 endif()
 
 set(ANIRA_WASM_WRAPPER_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/emscripten-wrappers/WasmInferenceThread.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/emscripten-wrappers/InferenceThread.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/emscripten-wrappers/JSPrePostProcessor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/emscripten-wrappers/backends/BackendBase.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/emscripten-wrappers/backends/JSProcessor.cpp

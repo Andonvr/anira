@@ -359,6 +359,10 @@ moodycamel::ConcurrentQueue<InferenceData>& Context::get_static_inference_queue(
     return m_next_inference;
 }
 
+std::unique_ptr<InferenceThread> Context::make_inference_thread() {
+    return std::make_unique<InferenceThread>(m_next_inference);
+}
+
 #ifdef USE_LIBTORCH
 template void Context::set_processor<LibtorchProcessor>(std::shared_ptr<SessionElement> session, InferenceConfig& inference_config, std::vector<std::shared_ptr<LibtorchProcessor>>& processors, InferenceBackend backend);
 template void Context::release_processor<LibtorchProcessor>(InferenceConfig& inference_config, std::vector<std::shared_ptr<LibtorchProcessor>>& processors, std::shared_ptr<LibtorchProcessor>& processor);
