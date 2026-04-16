@@ -43,7 +43,19 @@ import {
 import { resolvePtr, type PossiblePointer } from './wrappers/BaseWrapper'
 import { WasmInferenceThread } from './wrappers/system/WasmInferenceThread'
 
-export type ConfigureAudioWorkletIOOptions = Partial<AudioWorkletIOConfig>
+export type ConfigureAudioWorkletIOOptions = Partial<AudioWorkletIOConfig> & {
+  /**
+   * Overrides for the underlying {@link AudioWorkletNode} constructor options.
+   *
+   * By default, the Web Audio node topology is derived from `inputChannels` /
+   * `outputChannels` (i.e. `channelCount`, `channelCountMode: 'explicit'`, and
+   * `outputChannelCount`). When anira's internal buffer shape does not match
+   * the Web Audio channel layout (e.g. extra scratch channels for auxiliary
+   * tensors), pass overrides here. Provided fields are merged on top of the
+   * library defaults.
+   */
+  audioWorkletNodeOptions?: AudioWorkletNodeOptions
+}
 
 export type ProcessorDescriptor = {
   backend: JSBackendBase
@@ -359,7 +371,17 @@ export class AniraJS {
 
     const wasmBinary = await this.ensureWasmBinary()
 
-    const inferenceNode = new AudioWorkletNode(audioContext, audioWorkletNodeName)
+    const nodeOptions: AudioWorkletNodeOptions = {
+      channelCount: ioConfig.inputChannels,
+      channelCountMode: 'explicit',
+      outputChannelCount: [ioConfig.outputChannels],
+      ...ioOptions.audioWorkletNodeOptions,
+    }
+    const inferenceNode = new AudioWorkletNode(
+      audioContext,
+      audioWorkletNodeName,
+      nodeOptions
+    )
     const processStackPtr = this.allocateWorkerStack()
     const bytesPerChannel = ioConfig.maxBufferSize * Float32Array.BYTES_PER_ELEMENT
 
