@@ -1,0 +1,120 @@
+name: publish_js
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*'
+
+concurrency:
+  group: publish-js
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: derive version and mode
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if tag=$(git describe --tags --exact-match HEAD 2>/dev/null); then
+            version="${tag#v}"
+            mode="publish"
+          else
+            sha=$(git rev-parse --short HEAD)
+            if desc=$(git describe --tags --long --match 'v*.*.*' 2>/dev/null); then
+              base_and_n="${desc%-g*}"
+              base="${base_and_n%-*}"
+              base="${base#v}"
+              n="${base_and_n##*-}"
+              version="${base}-rc.${n}.${sha}"
+            else
+              version="0.0.0-rc.0.${sha}"
+            fi
+            mode="pack"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "mode=${mode}" >> "$GITHUB_OUTPUT"
+          echo "Derived version: ${version} (mode: ${mode})"
+
+      - name: install system deps
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: setup emsdk
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+          actions-cache-folder: emsdk-cache
+
+      - name: configure wasm
+        run: cmake --preset web-prod
+
+      - name: build wasm
+        run: cmake --build --preset web-prod -j
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: js/package-lock.json
+
+      - name: install js deps
+        working-directory: js
+        run: npm ci
+
+      - name: set package version
+        working-directory: js
+        run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: build js package
+        working-directory: js
+        run: npm run build
+
+      - name: npm publish
+        if: steps.version.outputs.mode == 'publish'
+        working-directory: js
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+      - name: npm pack
+        id: pack
+        if: steps.version.outputs.mode == 'pack'
+        working-directory: js
+        run: |
+          tarball=$(npm pack --json | jq -r '.[0].filename')
+          echo "tarball=${tarball}" >> "$GITHUB_OUTPUT"
+
+      - name: upload rc artifact
+        if: steps.version.outputs.mode == 'pack'
+        uses: actions/upload-artifact@v4
+        with:
+          name: anira-js-${{ steps.version.outputs.version }}
+          path: js/${{ steps.pack.outputs.tarball }}
+          retention-days: 30
+
+      - name: summary
+        shell: bash
+        run: |
+          {
+            echo "### anira-js ${{ steps.version.outputs.mode }}"
+            echo ""
+            echo "- **Version:** \`${{ steps.version.outputs.version }}\`"
+            echo "- **Mode:** \`${{ steps.version.outputs.mode }}\`"
+            if [ "${{ steps.version.outputs.mode }}" = "publish" ]; then
+              echo "- **npm:** https://www.npmjs.com/package/anira-js/v/${{ steps.version.outputs.version }}"
+            else
+              echo "- **Artifact:** \`anira-js-${{ steps.version.outputs.version }}\` (tarball: \`${{ steps.pack.outputs.tarball }}\`)"
+              echo "- Promote with the \`publish_js_from_run\` workflow using run ID \`${{ github.run_id }}\`."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
