@@ -54,5 +54,8 @@ TEST(UserManagedInferenceThread, ProcessesAudioWithoutAutoPool) {
         std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
 
+    // stop() joins the underlying std::thread on native builds, so by the
+    // time it returns the run loop has fully exited.
     user_thread->stop();
+    ASSERT_FALSE(user_thread->is_running());
 }
