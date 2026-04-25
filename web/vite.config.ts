@@ -31,12 +31,12 @@ function preserveWorkerUrls(): Plugin {
       builtEntry: 'workers/audio-worklet.bundled.js',
     },
     {
-      sourcePath: '../wasm/AniraJS.js',
-      builtEntry: 'wasm/AniraJS.js',
+      sourcePath: '../wasm/AniraWeb.js',
+      builtEntry: 'wasm/AniraWeb.js',
     },
     {
-      sourcePath: '../wasm/AniraJS.wasm',
-      builtEntry: 'wasm/AniraJS.wasm',
+      sourcePath: '../wasm/AniraWeb.wasm',
+      builtEntry: 'wasm/AniraWeb.wasm',
     },
   ]
 

@@ -133,22 +133,22 @@ Moreover, the following options are available:
 - Build anira with documentation: ``-DANIRA_WITH_DOCS=ON``
 - Disable the logging system: ``-DANIRA_WITH_LOGGING=OFF``
 
-### anira-js (Web / JavaScript)
+### anira-web (Web / JavaScript)
 
-Anira is available as the `anira-js` package for use in web applications:
+Anira is available as the `anira-web` package for use in web applications:
 
 ```bash
 # npm
-npm install anira-js
+npm install anira-web
 
 # pnpm
-pnpm add anira-js
+pnpm add anira-web
 
 # yarn
-yarn add anira-js
+yarn add anira-web
 ```
 
-#### Building anira-js from source
+#### Building anira-web from source
 
 If you want to build the WASM module and JavaScript bindings yourself, you need to provide your own [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html). The CMake presets expect the `EMSDK` environment variable to be set to the root of your emsdk installation.
 
@@ -163,9 +163,21 @@ cmake --preset web-prod
 cmake --build --preset web-prod
 
 # Build the JavaScript package
-cd js
+cd web
 npm install
 npm run build
+```
+
+For packaging it locally, use
+```bash
+npm pack
+```
+in the `web` folder, which will create a `.tgz` file that can be installed with npm or yarn.
+
+Then install the package in your project:
+
+```bash
+npm install path/to/anira/web/anira-web-x.x.x.tgz
 ```
 
 A debug preset is also available via `cmake --preset web` / `cmake --build --preset web`.

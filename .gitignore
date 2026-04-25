@@ -8,9 +8,9 @@ cmake-build*
 logs/
 results/
 venv/
-js/wasm/
-js/dist/
-js/node_modules/
+web/wasm/
+web/dist/
+web/node_modules/
 extras/models/stateful-rnn/stateful-lstm/
 extras/models/hybrid-nn/GuitarLSTM/
 extras/models/cnn/steerable-nafx/

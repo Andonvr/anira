@@ -1,4 +1,4 @@
-import { AniraJS } from '../AniraJS'
+import { AniraWeb } from '../AniraWeb'
 import { ONNXRuntimeWebBackend } from '../backends/ONNXRuntimeWebBackend'
 import type { AniraWasmConfig } from '../factory'
 import { createFactory } from '../utils'
@@ -21,7 +21,7 @@ export type ProcessorClassMap = Record<string, typeof JSBackendBase>
 export type AniraCreateFn = (
   config?: AniraWasmConfig & Record<string, unknown>,
   memory?: WebAssembly.Memory
-) => Promise<AniraJS>
+) => Promise<AniraWeb>
 
 /**
  * Set up the inference worker message handler.
@@ -41,21 +41,21 @@ export type AniraCreateFn = (
  * factory function so the worker instantiates the correct WASM module:
  *
  * ```ts
- * import { setupInferenceWorker } from 'anira-js'
- * import { AniraBenchmarkJS } from 'anira-js-benchmarks'
+ * import { setupInferenceWorker } from 'anira-web'
+ * import { AniraBenchmarkWeb } from 'anira-web-benchmarks'
  *
- * setupInferenceWorker({}, (config, memory) => AniraBenchmarkJS.create(config, memory))
+ * setupInferenceWorker({}, (config, memory) => AniraBenchmarkWeb.create(config, memory))
  * ```
  */
 export const setupInferenceWorker = (
   customProcessorClasses: ProcessorClassMap = {},
-  createAnira: AniraCreateFn = (config, memory) => AniraJS.create(config, memory)
+  createAnira: AniraCreateFn = (config, memory) => AniraWeb.create(config, memory)
 ) => {
   const processorClasses: ProcessorClassMap = {
     ONNXRuntimeWebBackend,
     ...customProcessorClasses,
   }
-  let aniraJS: AniraJS
+  let aniraWeb: AniraWeb
   let thread: InferenceThread
   const processorRegistry = new Map<number, JSBackendBase>()
 
@@ -64,7 +64,7 @@ export const setupInferenceWorker = (
       case 'initInferenceWorker': {
         const { threadPtr, wasmMemory, stackPtr } = e.data
 
-        aniraJS = await createAnira(
+        aniraWeb = await createAnira(
           {
             processBuffers: (
               processorPtr: number,
@@ -83,9 +83,9 @@ export const setupInferenceWorker = (
           },
           wasmMemory
         )
-        aniraJS.stackRestore(stackPtr)
+        aniraWeb.stackRestore(stackPtr)
 
-        const t = aniraJS.InferenceThread.fromPointer(threadPtr)
+        const t = aniraWeb.InferenceThread.fromPointer(threadPtr)
         if (!t) return
         thread = t
 
@@ -99,12 +99,12 @@ export const setupInferenceWorker = (
           let instance: JSBackendBase
           if (className && processorClasses[className]) {
             const factory = createFactory(
-              aniraJS.getWasmInstance(),
+              aniraWeb.getWasmInstance(),
               processorClasses[className]
             )
             instance = factory.fromPointer(processorPtr)
           } else {
-            instance = aniraJS.JSBackendBase.fromPointer(processorPtr)
+            instance = aniraWeb.JSBackendBase.fromPointer(processorPtr)
           }
           if (inferenceConfigPtr) {
             instance.inferenceConfigPtr = inferenceConfigPtr

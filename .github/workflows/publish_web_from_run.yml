@@ -1,10 +1,10 @@
-name: publish_js_from_run
+name: publish_web_from_run
 
 on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: 'Run ID of the publish_js workflow that produced the RC artifact'
+        description: 'Run ID of the publish_web workflow that produced the RC artifact'
         required: true
       dist_tag:
         description: 'npm dist-tag to publish under'
@@ -17,7 +17,7 @@ on:
           - rc
 
 concurrency:
-  group: publish-js
+  group: publish-web
   cancel-in-progress: false
 
 jobs:
@@ -29,7 +29,7 @@ jobs:
         with:
           run-id: ${{ inputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          pattern: anira-js-*
+          pattern: anira-web-*
           path: ./artifact
           merge-multiple: true
 
@@ -38,9 +38,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tgz=$(ls ./artifact/anira-js-*.tgz | head -n 1)
+          tgz=$(ls ./artifact/anira-web-*.tgz | head -n 1)
           if [ -z "${tgz}" ]; then
-            echo "No anira-js-*.tgz found in artifact" >&2
+            echo "No anira-web-*.tgz found in artifact" >&2
             exit 1
           fi
           echo "path=${tgz}" >> "$GITHUB_OUTPUT"
@@ -61,7 +61,7 @@ jobs:
         shell: bash
         run: |
           {
-            echo "### anira-js promoted"
+            echo "### anira-web promoted"
             echo ""
             echo "- **Source run:** \`${{ inputs.run_id }}\`"
             echo "- **Tarball:** \`${{ steps.tarball.outputs.path }}\`"

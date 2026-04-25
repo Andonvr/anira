@@ -68,7 +68,7 @@ export type InferenceWorker = {
   stop: () => Promise<void>
 }
 
-export class AniraJS {
+export class AniraWeb {
   protected wasmInstance: AniraWasmInstance
   protected memory: WebAssembly.Memory
   protected wasmBinary: ArrayBuffer | null = null
@@ -153,9 +153,9 @@ export class AniraJS {
   static async create(
     config?: AniraWasmConfig & Record<string, unknown>,
     memory?: WebAssembly.Memory
-  ): Promise<AniraJS> {
-    const init = await AniraJS.initWasm(config, memory)
-    return new AniraJS(init.wasmInstance, init.wasmMemory, init.prePostRegistry)
+  ): Promise<AniraWeb> {
+    const init = await AniraWeb.initWasm(config, memory)
+    return new AniraWeb(init.wasmInstance, init.wasmMemory, init.prePostRegistry)
   }
 
   constructor(

@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 6,
   "cmakeMinimumRequired": {
     "major": 3,
     "minor": 15,
@@ -7,11 +7,33 @@
   },
   "configurePresets": [
     {
-      "name": "web",
-      "description": "Build AniraJS WASM module (debug)",
-      "hidden": false,
+      "name": "desktop-debug",
+      "displayName": "Desktop Debug",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "binaryDir": "${sourceDir}/build/Desktop/Debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "desktop-release",
+      "displayName": "Desktop Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Desktop/Release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "wasm-debug",
+      "displayName": "Wasm Debug",
+      "description": "Build AniraWeb WASM module (debug)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Wasm/Debug",
       "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
       "cacheVariables": {
         "ANIRA_BUILD_WASM": "ON",
@@ -22,11 +44,11 @@
       }
     },
     {
-      "name": "web-prod",
-      "description": "Build AniraJS WASM module (release)",
-      "hidden": false,
+      "name": "wasm-release",
+      "displayName": "Wasm Release",
+      "description": "Build AniraWeb WASM module (release)",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "binaryDir": "${sourceDir}/build/Wasm/Release",
       "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
       "cacheVariables": {
         "ANIRA_BUILD_WASM": "ON",
@@ -39,14 +61,40 @@
   ],
   "buildPresets": [
     {
-      "name": "web",
-      "configurePreset": "web",
-      "description": "Build AniraJS WASM module (debug)"
+      "name": "desktop-debug",
+      "configurePreset": "desktop-debug",
+      "configuration": "Debug"
     },
     {
-      "name": "web-prod",
-      "configurePreset": "web-prod",
-      "description": "Build AniraJS WASM module (release)"
+      "name": "desktop-release",
+      "configurePreset": "desktop-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "wasm-debug",
+      "configurePreset": "wasm-debug",
+      "configuration": "Debug",
+      "description": "Build AniraWeb WASM module (debug)"
+    },
+    {
+      "name": "wasm-release",
+      "configurePreset": "wasm-release",
+      "configuration": "Release",
+      "description": "Build AniraWeb WASM module (release)"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "desktop-debug",
+      "configurePreset": "desktop-debug",
+      "configuration": "Debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "desktop-release",
+      "configurePreset": "desktop-release",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
     }
   ]
 }

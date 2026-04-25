@@ -163,10 +163,11 @@ unsigned int inferencehandler_get_latency(uintptr_t ptr, size_t tensor_index) {
     return reinterpret_cast<anira::InferenceHandler*>(ptr)->get_latency(tensor_index);
 }
 
-// Returns pointer to std::vector<unsigned int> - caller must cast and copy
+// Returns pointer to std::vector<unsigned int> - caller must cast and copy before the next call
 EMSCRIPTEN_KEEPALIVE
 uintptr_t inferencehandler_get_latency_vector(uintptr_t ptr) {
-    const std::vector<unsigned int>& latencies = reinterpret_cast<anira::InferenceHandler*>(ptr)->get_latency_vector();
+    thread_local std::vector<unsigned int> latencies;
+    latencies = reinterpret_cast<anira::InferenceHandler*>(ptr)->get_latency_vector();
     return reinterpret_cast<uintptr_t>(&latencies);
 }
 

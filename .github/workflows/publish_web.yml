@@ -1,4 +1,4 @@
-name: publish_js
+name: publish_web
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - 'v*.*.*'
 
 concurrency:
-  group: publish-js
+  group: publish-web
   cancel-in-progress: false
 
 jobs:
@@ -66,23 +66,23 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
-          cache-dependency-path: js/package-lock.json
+          cache-dependency-path: web/package-lock.json
 
       - name: install js deps
-        working-directory: js
+        working-directory: web
         run: npm ci
 
       - name: set package version
-        working-directory: js
+        working-directory: web
         run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
 
       - name: build js package
-        working-directory: js
+        working-directory: web
         run: npm run build
 
       - name: npm publish
         if: steps.version.outputs.mode == 'publish'
-        working-directory: js
+        working-directory: web
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public
@@ -90,7 +90,7 @@ jobs:
       - name: npm pack
         id: pack
         if: steps.version.outputs.mode == 'pack'
-        working-directory: js
+        working-directory: web
         run: |
           tarball=$(npm pack --json | jq -r '.[0].filename')
           echo "tarball=${tarball}" >> "$GITHUB_OUTPUT"
@@ -99,22 +99,22 @@ jobs:
         if: steps.version.outputs.mode == 'pack'
         uses: actions/upload-artifact@v4
         with:
-          name: anira-js-${{ steps.version.outputs.version }}
-          path: js/${{ steps.pack.outputs.tarball }}
+          name: anira-web-${{ steps.version.outputs.version }}
+          path: web/${{ steps.pack.outputs.tarball }}
           retention-days: 30
 
       - name: summary
         shell: bash
         run: |
           {
-            echo "### anira-js ${{ steps.version.outputs.mode }}"
+            echo "### anira-web ${{ steps.version.outputs.mode }}"
             echo ""
             echo "- **Version:** \`${{ steps.version.outputs.version }}\`"
             echo "- **Mode:** \`${{ steps.version.outputs.mode }}\`"
             if [ "${{ steps.version.outputs.mode }}" = "publish" ]; then
-              echo "- **npm:** https://www.npmjs.com/package/anira-js/v/${{ steps.version.outputs.version }}"
+              echo "- **npm:** https://www.npmjs.com/package/anira-web/v/${{ steps.version.outputs.version }}"
             else
-              echo "- **Artifact:** \`anira-js-${{ steps.version.outputs.version }}\` (tarball: \`${{ steps.pack.outputs.tarball }}\`)"
-              echo "- Promote with the \`publish_js_from_run\` workflow using run ID \`${{ github.run_id }}\`."
+              echo "- **Artifact:** \`anira-web-${{ steps.version.outputs.version }}\` (tarball: \`${{ steps.pack.outputs.tarball }}\`)"
+              echo "- Promote with the \`publish_web_from_run\` workflow using run ID \`${{ github.run_id }}\`."
             fi
           } >> "$GITHUB_STEP_SUMMARY"

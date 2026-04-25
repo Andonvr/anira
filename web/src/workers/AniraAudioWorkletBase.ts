@@ -1,4 +1,4 @@
-import { AniraJS } from '../AniraJS'
+import { AniraWeb } from '../AniraWeb'
 import type { InferenceHandler } from '../wrappers'
 import type {
   AudioWorkletConfigureMessage,
@@ -8,7 +8,7 @@ import type {
 
 export type AniraWorkletState = {
   wasmMemory: WebAssembly.Memory
-  aniraJS: AniraJS
+  aniraWeb: AniraWeb
   inferenceHandler: InferenceHandler
   prePostProcessorPtr: number
   inputBufferPtr: number
@@ -51,9 +51,9 @@ export class AniraAudioWorkletBase extends AudioWorkletProcessor {
         ioConfig,
       } = message
 
-      const aniraJS = await AniraJS.create({ wasmBinary }, wasmMemory)
-      aniraJS.stackRestore(stackPtr)
-      const inferenceHandler = aniraJS.InferenceHandler.fromPointer(inferenceHandlerPtr)
+      const aniraWeb = await AniraWeb.create({ wasmBinary }, wasmMemory)
+      aniraWeb.stackRestore(stackPtr)
+      const inferenceHandler = aniraWeb.InferenceHandler.fromPointer(inferenceHandlerPtr)
       if (!inferenceHandler) {
         console.error('Failed to create inference handler from pointer')
         return
@@ -83,7 +83,7 @@ export class AniraAudioWorkletBase extends AudioWorkletProcessor {
 
       this.aniraState = {
         wasmMemory,
-        aniraJS,
+        aniraWeb,
         inferenceHandler,
         prePostProcessorPtr,
         inputBufferPtr,

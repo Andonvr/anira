@@ -3,12 +3,12 @@ if(NOT WASM)
 endif()
 
 # ==============================================================================
-# AniraJS WASM target
+# AniraWeb WASM target
 # ==============================================================================
 
-set(ANIRA_WASM_TARGET_NAME "AniraJS")
-set(ANIRA_WASM_OUTPUT_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/js/wasm")
-message(STATUS "Building AniraJS WASM module...")
+set(ANIRA_WASM_TARGET_NAME "AniraWeb")
+set(ANIRA_WASM_OUTPUT_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/web/wasm")
+message(STATUS "Building AniraWeb WASM module...")
 
 # Set flags if Debug
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -31,7 +31,7 @@ set(ANIRA_WASM_WRAPPER_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/emscripten-wrappers/PrePostProcessor.cpp
 )
 
-# Static library of WASM wrappers — linkable by AniraJS and external WASM targets
+# Static library of WASM wrappers — linkable by AniraWeb and external WASM targets
 add_library(anira_wasm_wrappers STATIC ${ANIRA_WASM_WRAPPER_SOURCES})
 target_link_libraries(anira_wasm_wrappers PUBLIC anira::anira)
 target_compile_features(anira_wasm_wrappers PUBLIC cxx_std_20)
@@ -60,8 +60,8 @@ set(ANIRA_WASM_LINK_FLAGS "\
 # CMake requires at least one source file for add_executable.
 # This is a --no-entry Emscripten module so there is no main();
 # all symbols come from the linked anira_wasm_wrappers static lib.
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/anirajs_stub.cpp" "")
-add_executable(${ANIRA_WASM_TARGET_NAME} "${CMAKE_CURRENT_BINARY_DIR}/anirajs_stub.cpp")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/aniraweb_stub.cpp" "")
+add_executable(${ANIRA_WASM_TARGET_NAME} "${CMAKE_CURRENT_BINARY_DIR}/aniraweb_stub.cpp")
 
 target_link_libraries(${ANIRA_WASM_TARGET_NAME} PUBLIC
     -Wl,--whole-archive anira::wasm_wrappers -Wl,--no-whole-archive)
