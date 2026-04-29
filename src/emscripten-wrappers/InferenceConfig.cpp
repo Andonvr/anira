@@ -124,6 +124,11 @@ bool modeldata_equals(uintptr_t ptr, uintptr_t other_ptr) {
     return *reinterpret_cast<anira::ModelData*>(ptr) == *reinterpret_cast<anira::ModelData*>(other_ptr);
 }
 
+EMSCRIPTEN_KEEPALIVE
+bool modeldata_not_equals(uintptr_t ptr, uintptr_t other_ptr) {
+    return !(*reinterpret_cast<anira::ModelData*>(ptr) == *reinterpret_cast<anira::ModelData*>(other_ptr));
+}
+
 // ------ TensorShape C API ----
 
 EMSCRIPTEN_KEEPALIVE
@@ -150,6 +155,11 @@ bool tensorshape_is_universal(uintptr_t ptr) {
 EMSCRIPTEN_KEEPALIVE
 bool tensorshape_equals(uintptr_t ptr, uintptr_t other_ptr) {
     return *reinterpret_cast<anira::TensorShape*>(ptr) == *reinterpret_cast<anira::TensorShape*>(other_ptr);
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool tensorshape_not_equals(uintptr_t ptr, uintptr_t other_ptr) {
+    return !(*reinterpret_cast<anira::TensorShape*>(ptr) == *reinterpret_cast<anira::TensorShape*>(other_ptr));
 }
 
 // ------ ProcessingSpec C API ----
@@ -188,6 +198,11 @@ void processingspec_destroy(uintptr_t ptr) {
 EMSCRIPTEN_KEEPALIVE
 bool processingspec_equals(uintptr_t ptr, uintptr_t other_ptr) {
     return *reinterpret_cast<anira::ProcessingSpec*>(ptr) == *reinterpret_cast<anira::ProcessingSpec*>(other_ptr);
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool processingspec_not_equals(uintptr_t ptr, uintptr_t other_ptr) {
+    return !(*reinterpret_cast<anira::ProcessingSpec*>(ptr) == *reinterpret_cast<anira::ProcessingSpec*>(other_ptr));
 }
 
 // ------ InferenceConfig C API ----
@@ -298,6 +313,16 @@ unsigned int inferenceconfig_get_warm_up(uintptr_t ptr) {
 EMSCRIPTEN_KEEPALIVE
 void inferenceconfig_set_warm_up(uintptr_t ptr, unsigned int value) {
     reinterpret_cast<anira::InferenceConfig*>(ptr)->m_warm_up = value;
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool inferenceconfig_equals(uintptr_t ptr, uintptr_t other_ptr) {
+    return *reinterpret_cast<anira::InferenceConfig*>(ptr) == *reinterpret_cast<anira::InferenceConfig*>(other_ptr);
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool inferenceconfig_not_equals(uintptr_t ptr, uintptr_t other_ptr) {
+    return !(*reinterpret_cast<anira::InferenceConfig*>(ptr) == *reinterpret_cast<anira::InferenceConfig*>(other_ptr));
 }
 
 } // extern "C"

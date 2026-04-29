@@ -21,7 +21,8 @@ extensions = [
         'sphinx.ext.viewcode',
         'sphinx.ext.napoleon',
         'sphinx.ext.graphviz',
-        'myst_parser'
+        'myst_parser',
+        'sphinx_js',
 ]
 
 # Breathe configuration
@@ -32,6 +33,96 @@ breathe_default_members = ('members', 'undoc-members')
 # Configure Breathe to handle macros better
 breathe_domain_by_extension = {"h": "cpp", "hpp": "cpp"}
 breathe_implementation_filename_extensions = ['.c', '.cc', '.cpp']
+
+# sphinx-js: render the anira-web TypeScript API via TypeDoc.
+# sphinx-js shells out to the `typedoc` binary on PATH (made available by the
+# typedoc-json CMake target). It then parses the resulting JSON so that
+# `js:autoclass::` / `js:autofunction::` directives produce Sphinx js-domain
+# nodes -- visually matching the cpp-domain output styled by shibuya.
+js_language = 'typescript'
+js_source_path = '@CMAKE_SOURCE_DIR@/web/src/index.ts'
+root_for_relative_js_paths = '@CMAKE_SOURCE_DIR@/web/src'
+jsdoc_config_path = '@CMAKE_CURRENT_SOURCE_DIR@/typedoc/typedoc.json'
+primary_domain = None  # keep both cpp and js domains first-class
+
+# Monkey-patch sphinx-js so class members render under their short name
+# (`getLatency(...)`) instead of the parent-qualified form
+# (`InferenceHandler.getLatency(...)`). Upstream hardcodes use_short_name=False
+# for members and exposes no flag to override it. We intercept the single
+# call site where partial_path is a single element that already contains the
+# parent prefix and strip it.
+def _patch_sphinx_js_member_short_names():
+    """Strip parent-qualified prefixes from sphinx-js member directives.
+
+    sphinx-js emits things like `.. js:function:: InferenceHandler.destroy()`
+    for class members. We rewrite the partial_path so the directive name
+    becomes just `destroy`. (Sphinx still adds a visible class prefix on top
+    of this -- see the second patch below.)
+    """
+    from sphinx_js import renderers
+    _orig_rst = renderers.JsRenderer.rst
+
+    def rst(self, partial_path, obj, use_short_name=False):
+        if len(partial_path) == 1 and '.' in partial_path[0]:
+            partial_path = [partial_path[0].rsplit('.', 1)[-1]]
+        return _orig_rst(self, partial_path, obj, use_short_name)
+
+    renderers.JsRenderer.rst = rst
+
+_patch_sphinx_js_member_short_names()
+
+
+def _patch_js_domain_hide_class_prefix():
+    """Drop the auto-added `Class.` descclassname from JS member signatures.
+
+    Sphinx's `JSCallable.handle_signature` reads the enclosing js:class from
+    ref_context and prepends it as a `desc_addname` node, mirroring the
+    Python domain. We don't want that visual prefix on a per-class page where
+    the class header is already visible. We let upstream run (so signode
+    metadata and cross-reference targets stay correct via `fullname`) and
+    then strip the `desc_addname` children from the signature node.
+    """
+    from sphinx.domains.javascript import JSCallable
+    from sphinx import addnodes
+
+    _orig = JSCallable.handle_signature
+
+    def handle_signature(self, sig, signode):
+        result = _orig(self, sig, signode)
+        for node in list(signode.children):
+            if isinstance(node, addnodes.desc_addname):
+                signode.remove(node)
+        return result
+
+    JSCallable.handle_signature = handle_signature
+
+_patch_js_domain_hide_class_prefix()
+
+
+def _patch_sphinx_js_drop_exported_from():
+    """Suppress sphinx-js's "exported from <module>" line.
+
+    For a single-package barrel-export like anira-web the source-file path
+    TypeDoc reports (e.g. `wrappers.utils.HostConfig`) is meaningless to
+    users, who only ever import from the package root.
+    """
+    from sphinx_js import renderers
+
+    for cls_name in ('AutoClassRenderer', 'AutoFunctionRenderer', 'AutoAttributeRenderer'):
+        cls = getattr(renderers, cls_name)
+        _orig_tv = cls._template_vars
+        def make(orig):
+            def _template_vars(self, name, obj):
+                if hasattr(obj, 'exported_from'):
+                    try:
+                        obj.exported_from = None
+                    except Exception:
+                        pass
+                return orig(self, name, obj)
+            return _template_vars
+        cls._template_vars = make(_orig_tv)
+
+_patch_sphinx_js_drop_exported_from()
 
 templates_path = ['@SPHINX_SOURCE_DIR@/_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'venv']
@@ -64,6 +155,22 @@ html_theme_options = {
                 "title": "Usage Guide",
                 "url": "usage",
                 "summary": "Detailed usage instructions for Anira"
+            },
+            {
+                "title": "anira-web API",
+                "url": "web-api/index",
+                "children": [
+                        {
+                                "title": "Class List",
+                                "url": "web-api/reference/classlist",
+                                "summary": "List of all anira-web classes",
+                        },
+                        {
+                                "title": "Function List",
+                                "url": "web-api/reference/functionlist",
+                                "summary": "Module-level functions",
+                        },
+                ]
             },
             {
                 "title": "API Documentation",

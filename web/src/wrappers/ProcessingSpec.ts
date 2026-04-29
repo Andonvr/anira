@@ -43,4 +43,12 @@ export class ProcessingSpec extends BaseWrapper {
   destroy(): void {
     this._destroy(this.wasmInstance._processingspec_destroy)
   }
+
+  equals(other: PossiblePointer<ProcessingSpec>): boolean {
+    return this.wasmInstance._processingspec_equals(this.ptr, resolvePtr(other)) === 1
+  }
+
+  notEquals(other: PossiblePointer<ProcessingSpec>): boolean {
+    return this.wasmInstance._processingspec_not_equals(this.ptr, resolvePtr(other)) === 1
+  }
 }

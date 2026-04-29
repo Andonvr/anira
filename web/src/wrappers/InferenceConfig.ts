@@ -91,4 +91,12 @@ export class InferenceConfig extends BaseWrapper {
   getModelData(backend: number): number {
     return this.wasmInstance._inferenceconfig_get_model_data(this.ptr, backend)
   }
+
+  equals(other: PossiblePointer<InferenceConfig>): boolean {
+    return this.wasmInstance._inferenceconfig_equals(this.ptr, resolvePtr(other)) === 1
+  }
+
+  notEquals(other: PossiblePointer<InferenceConfig>): boolean {
+    return this.wasmInstance._inferenceconfig_not_equals(this.ptr, resolvePtr(other)) === 1
+  }
 }

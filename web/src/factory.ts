@@ -1,4 +1,4 @@
-import AniraWebFactory from '../wasm/AniraWeb'
+import AniraWebFactory, { type MainModule } from '../wasm/AniraWeb'
 
 // Lazy-evaluated so the module can be imported in AudioWorkletGlobalScope
 // where URL may not be available. The URLs are only needed on the main thread.
@@ -22,11 +22,16 @@ export type AniraWasmConfig = {
   wasmBinary?: ArrayBuffer
 }
 
+export type AniraWasmInstance = Omit<MainModule, 'HEAPF32' | 'HEAPU32'> & {
+  HEAPF32: Float32Array
+  HEAPU32: Float32Array
+}
+
 // Export factory with WASM locateFile override
 export const createAniraWasm = async (
   wasmMemory: WebAssembly.Memory,
   config?: AniraWasmConfig & Record<string, unknown>
-) => {
+): Promise<AniraWasmInstance> => {
   const { processBuffers, processPrePost, wasmBinary, ...rest } = config ?? {}
   const out = await AniraWebFactory({
     processBuffers: processBuffers ?? (() => {}),
@@ -51,4 +56,3 @@ export const createAniraWasm = async (
     HEAPU32: out.HEAPU32 as Float32Array,
   }
 }
-export type AniraWasmInstance = Awaited<ReturnType<typeof createAniraWasm>>

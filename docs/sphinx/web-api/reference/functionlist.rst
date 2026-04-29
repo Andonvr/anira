@@ -1,0 +1,25 @@
+Function list
+=============
+
+Module-level free functions exported by ``anira-web``.
+
+WASM bootstrap
+--------------
+
+.. js:autofunction:: createAniraWasm
+
+.. js:autofunction:: getWasmUrl
+
+Wrappers
+--------
+
+.. js:autofunction:: createInferenceBackend
+
+.. js:autofunction:: resolvePtr
+
+Workers
+-------
+
+.. js:autofunction:: setupInferenceWorker
+
+.. js:autofunction:: waitForWorkerMessage

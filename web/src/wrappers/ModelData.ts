@@ -1,5 +1,5 @@
 import { type AniraWasmInstance } from '../factory'
-import { BaseWrapper } from './BaseWrapper'
+import { BaseWrapper, type PossiblePointer, resolvePtr } from './BaseWrapper'
 
 /**
  * TypeScript wrapper for anira::ModelData
@@ -61,5 +61,13 @@ export class ModelData extends BaseWrapper {
 
   getDataPtr(): number {
     return this.wasmInstance._modeldata_get_data_ptr(this.ptr)
+  }
+
+  equals(other: PossiblePointer<ModelData>): boolean {
+    return this.wasmInstance._modeldata_equals(this.ptr, resolvePtr(other)) === 1
+  }
+
+  notEquals(other: PossiblePointer<ModelData>): boolean {
+    return this.wasmInstance._modeldata_not_equals(this.ptr, resolvePtr(other)) === 1
   }
 }

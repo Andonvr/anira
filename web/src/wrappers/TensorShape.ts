@@ -34,4 +34,12 @@ export class TensorShape extends BaseWrapper {
   isUniversal(): boolean {
     return this.wasmInstance._tensorshape_is_universal(this.ptr) === 1
   }
+
+  equals(other: PossiblePointer<TensorShape>): boolean {
+    return this.wasmInstance._tensorshape_equals(this.ptr, resolvePtr(other)) === 1
+  }
+
+  notEquals(other: PossiblePointer<TensorShape>): boolean {
+    return this.wasmInstance._tensorshape_not_equals(this.ptr, resolvePtr(other)) === 1
+  }
 }
