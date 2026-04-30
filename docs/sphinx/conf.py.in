@@ -99,6 +99,32 @@ def _patch_js_domain_hide_class_prefix():
 _patch_js_domain_hide_class_prefix()
 
 
+def _collapse_single_arg(_app):
+    """Make single-argument JS callables render flat instead of bulleted.
+
+    Sphinx's `JSCallable.doc_field_types` registers the Arguments field as
+    `TypedField('arguments', ...)` with the default `can_collapse=False`. As a
+    result, even a method with a single parameter renders as a one-item
+    bulleted list — visually mismatched with the C++ / Python domain output
+    in the same project (those domains set `can_collapse=True`, so single
+    parameters render flat as `**name** (type) – description`).
+
+    Run as a `builder-inited` callback (registered in `setup()` below) so it
+    fires *after* sphinx-js's own `fix_js_make_xref` rebuilds the field list
+    with its `JSTypedField` subclass — otherwise our change gets overwritten.
+    """
+    from sphinx.domains.javascript import JSCallable
+    from sphinx.util.docfields import TypedField
+
+    for field in JSCallable.doc_field_types:
+        if isinstance(field, TypedField) and field.name == 'arguments':
+            field.can_collapse = True
+
+
+def setup(app):
+    app.connect('builder-inited', _collapse_single_arg)
+
+
 def _patch_sphinx_js_drop_exported_from():
     """Suppress sphinx-js's "exported from <module>" line.
 
@@ -123,6 +149,194 @@ def _patch_sphinx_js_drop_exported_from():
         cls._template_vars = make(_orig_tv)
 
 _patch_sphinx_js_drop_exported_from()
+
+
+def _patch_sphinx_js_render_overloads():
+    """Render TypeScript overload signatures in the docs.
+
+    sphinx-js (`convertTopLevel.ts`) drops every signature past the first when
+    converting TypeDoc output to its IR — see the comment block around
+    `const first_sig = func.signatures![0];`. The Python-side `Function` IR
+    only carries one params list, so the limitation is structural.
+
+    We work around it by reading `typedoc.json` directly, indexing every
+    callable that has more than one signature, and appending a fully rendered
+    ``.. js:function::`` block per extra signature after sphinx-js's
+    canonical rendering. Each extra block carries its own ``:param X:`` /
+    ``:type X:`` / ``:returns:`` field list, so every overload shows its own
+    Arguments / Returns sections in the rendered HTML.
+    """
+    import json
+    from pathlib import Path
+
+    typedoc_json = Path('@CMAKE_CURRENT_BINARY_DIR@/typedoc/typedoc.json')
+    if not typedoc_json.exists():
+        return
+
+    try:
+        data = json.loads(typedoc_json.read_text())
+    except Exception:
+        return
+
+    # ---- Type rendering helpers ----
+    # Mirror sphinx-js's render_type best-effort. We only need string-quality
+    # output here; cross-references aren't preserved.
+    def render_type_node(t):
+        if t is None:
+            return ''
+        if isinstance(t, str):
+            return t
+        if not isinstance(t, dict):
+            return str(t)
+        kind = t.get('type')
+        if kind == 'intrinsic':
+            return t.get('name', '')
+        if kind == 'reference':
+            base = t.get('name', '')
+            args = t.get('typeArguments') or []
+            if args:
+                return f"{base}<{', '.join(render_type_node(a) for a in args)}>"
+            return base
+        if kind == 'union':
+            return ' | '.join(render_type_node(x) for x in t.get('types') or [])
+        if kind == 'array':
+            return render_type_node(t.get('elementType')) + '[]'
+        if kind == 'literal':
+            v = t.get('value')
+            return repr(v) if isinstance(v, str) else str(v)
+        if kind == 'tuple':
+            return '[' + ', '.join(render_type_node(x) for x in t.get('elements') or []) + ']'
+        if kind == 'reflection':
+            # Function types and inline object types — fall back to a name if
+            # available, else a generic placeholder.
+            return t.get('name') or 'object'
+        return t.get('name') or kind or ''
+
+    # ---- Per-signature param/return extraction ----
+    def extract_signature(sig):
+        params = []
+        for p in sig.get('parameters') or []:
+            params.append({
+                'name': p.get('name', ''),
+                'type': render_type_node(p.get('type')),
+                'optional': bool(p.get('flags', {}).get('isOptional')),
+                'rest': bool(p.get('flags', {}).get('isRest')),
+                'default': p.get('defaultValue'),
+            })
+        return {
+            'params': params,
+            'returns': render_type_node(sig.get('type')),
+        }
+
+    def fmt_formal_params(params):
+        # Match sphinx-js's `_formal_params`: bare names, `...` prefix for
+        # rest, `=default` suffix where a default value is present.
+        formals = []
+        for p in params:
+            name = p['name']
+            if p['rest']:
+                name = '...' + name
+            if p['default']:
+                name = f"{name}={p['default']}"
+            formals.append(name)
+        return '(' + ', '.join(formals) + ')'
+
+    # Map fully-qualified method names ("ClassName.methodName") to the list of
+    # *additional* signature dicts (everything past the first signature, since
+    # sphinx-js already renders signature 0 itself).
+    extra_overloads: dict[str, list[dict]] = {}
+
+    CONTAINER_KINDS = {128, 256, 2}      # Class, Interface, Module
+    CALLABLE_KINDS = {2048, 64, 512}     # Method, Function, Constructor
+
+    def walk(node, parent_name=None):
+        if isinstance(node, list):
+            for child in node:
+                walk(child, parent_name)
+            return
+        if not isinstance(node, dict):
+            return
+
+        name = node.get('name')
+        kind = node.get('kind')
+        sigs = node.get('signatures')
+
+        if (
+            sigs and isinstance(sigs, list) and len(sigs) > 1
+            and kind in CALLABLE_KINDS and parent_name and name
+        ):
+            key = f'{parent_name}.{name}'
+            extra_overloads[key] = [extract_signature(s) for s in sigs[1:]]
+
+        next_parent = name if kind in CONTAINER_KINDS else parent_name
+        walk(node.get('children') or [], next_parent)
+
+    walk(data, None)
+
+    if not extra_overloads:
+        return
+
+    # ---- Render an extra overload as a complete .. js:function:: block ----
+    # We wrap type strings in sphinx-js's custom `:sphinx_js_type:` role so the
+    # rendered HTML uses the same `<span class="sphinx_js-type">` element as
+    # the canonical signature — keeping bold/non-italic styling consistent.
+    def fmt_type(t: str) -> str:
+        # Backticks inside a role value have to be escaped to keep the role
+        # parser from terminating early. We don't expect them in our types.
+        return f':sphinx_js_type:`{t}`' if t else ''
+
+    def render_extra_block(method_name: str, sig: dict) -> str:
+        params = sig['params']
+        formal = fmt_formal_params(params)
+        lines = [f'.. js:function:: {method_name}{formal}', '']
+        for p in params:
+            if p['type']:
+                lines.append(f'   :type {p["name"]}: {fmt_type(p["type"])}')
+            lines.append(f'   :param {p["name"]}: ')
+        if sig['returns'] and sig['returns'] != 'void':
+            lines.append(f'   :returns: {fmt_type(sig["returns"])}')
+        lines.append('')
+        return '\n'.join(lines)
+
+    # ---- Patch JsRenderer.rst to append the extra blocks ----
+    from sphinx_js import renderers
+
+    _orig_rst = renderers.JsRenderer.rst
+
+    def rst(self, partial_path, obj, use_short_name=False):
+        result = _orig_rst(self, partial_path, obj, use_short_name)
+        # Only augment Function IR objects (methods, ctors, free funcs).
+        from sphinx_js.ir import Function
+        if not isinstance(obj, Function):
+            return result
+
+        path = getattr(obj, 'path', None)
+        segments = list(getattr(path, 'segments', None) or [])
+        clean = [s.rstrip('.#') for s in segments if s.rstrip('.#')]
+        candidates = []
+        if len(clean) >= 2:
+            candidates.append(f'{clean[-2]}.{clean[-1]}')
+        if clean:
+            candidates.append(clean[-1])
+
+        extras = None
+        for key in candidates:
+            if key in extra_overloads:
+                extras = extra_overloads[key]
+                break
+        if not extras:
+            return result
+
+        # Use the short method name (last path segment) so the extra block
+        # matches the canonical one's display style.
+        method_name = clean[-1] if clean else partial_path[-1]
+        extra_blocks = [render_extra_block(method_name, sig) for sig in extras]
+        return result.rstrip() + '\n\n' + '\n'.join(extra_blocks) + '\n'
+
+    renderers.JsRenderer.rst = rst
+
+_patch_sphinx_js_render_overloads()
+
 
 templates_path = ['@SPHINX_SOURCE_DIR@/_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'venv']

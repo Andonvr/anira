@@ -72,44 +72,55 @@ export class PrePostProcessor extends BaseWrapper {
     ringBuffer: PossiblePointer<RingBuffer>,
     buffer: PossiblePointer<BufferF>,
     numSamples: number
-  ): void {
-    this.wasmInstance._prepostprocessor_pop_samples_from_buffer(
-      this.ptr,
-      resolvePtr(ringBuffer),
-      resolvePtr(buffer),
-      numSamples
-    )
-  }
-
-  popSamplesFromBufferWindow(
+  ): void
+  popSamplesFromBuffer(
     ringBuffer: PossiblePointer<RingBuffer>,
     buffer: PossiblePointer<BufferF>,
-    numSamples: number,
-    windowSize: number
-  ): void {
-    this.wasmInstance._prepostprocessor_pop_samples_from_buffer_window(
-      this.ptr,
-      resolvePtr(ringBuffer),
-      resolvePtr(buffer),
-      numSamples,
-      windowSize
-    )
-  }
-
-  popSamplesFromBufferWindowOffset(
+    numNewSamples: number,
+    numOldSamples: number
+  ): void
+  popSamplesFromBuffer(
     ringBuffer: PossiblePointer<RingBuffer>,
     buffer: PossiblePointer<BufferF>,
-    numSamples: number,
-    windowSize: number,
+    numNewSamples: number,
+    numOldSamples: number,
     offset: number
+  ): void
+  popSamplesFromBuffer(
+    ringBuffer: PossiblePointer<RingBuffer>,
+    buffer: PossiblePointer<BufferF>,
+    a: number,
+    b?: number,
+    c?: number
   ): void {
+    const rbPtr = resolvePtr(ringBuffer)
+    const bufPtr = resolvePtr(buffer)
+    if (b === undefined) {
+      this.wasmInstance._prepostprocessor_pop_samples_from_buffer(
+        this.ptr,
+        rbPtr,
+        bufPtr,
+        a
+      )
+      return
+    }
+    if (c === undefined) {
+      this.wasmInstance._prepostprocessor_pop_samples_from_buffer_window(
+        this.ptr,
+        rbPtr,
+        bufPtr,
+        a,
+        b
+      )
+      return
+    }
     this.wasmInstance._prepostprocessor_pop_samples_from_buffer_window_offset(
       this.ptr,
-      resolvePtr(ringBuffer),
-      resolvePtr(buffer),
-      numSamples,
-      windowSize,
-      offset
+      rbPtr,
+      bufPtr,
+      a,
+      b,
+      c
     )
   }
 

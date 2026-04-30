@@ -34,19 +34,21 @@ export class BufferF extends BaseWrapper {
     this.wasmInstance._bufferf_resize(this.ptr, numChannels, numSamples)
   }
 
-  getReadPointer(channel: number): number {
-    return this.wasmInstance._bufferf_get_read_pointer(this.ptr, channel)
-  }
-
-  getReadPointerAt(channel: number, sampleIndex: number): number {
+  getReadPointer(channel: number): number
+  getReadPointer(channel: number, sampleIndex: number): number
+  getReadPointer(channel: number, sampleIndex?: number): number {
+    if (sampleIndex === undefined) {
+      return this.wasmInstance._bufferf_get_read_pointer(this.ptr, channel)
+    }
     return this.wasmInstance._bufferf_get_read_pointer_at(this.ptr, channel, sampleIndex)
   }
 
-  getWritePointer(channel: number): number {
-    return this.wasmInstance._bufferf_get_write_pointer(this.ptr, channel)
-  }
-
-  getWritePointerAt(channel: number, sampleIndex: number): number {
+  getWritePointer(channel: number): number
+  getWritePointer(channel: number, sampleIndex: number): number
+  getWritePointer(channel: number, sampleIndex?: number): number {
+    if (sampleIndex === undefined) {
+      return this.wasmInstance._bufferf_get_write_pointer(this.ptr, channel)
+    }
     return this.wasmInstance._bufferf_get_write_pointer_at(this.ptr, channel, sampleIndex)
   }
 
@@ -84,12 +86,28 @@ export class BufferF extends BaseWrapper {
     return this.wasmInstance._bufferf_data(this.ptr)
   }
 
-  swapDataWithBuffer(other: PossiblePointer<BufferF>): void {
-    this.wasmInstance._bufferf_swap_data_with_buffer(this.ptr, resolvePtr(other))
-  }
-
-  swapDataWithRawPointer(rawPointer: number, size: number): void {
-    this.wasmInstance._bufferf_swap_data_with_raw_pointer(this.ptr, rawPointer, size)
+  swapData(other: PossiblePointer<BufferF>): void
+  swapData(rawPointer: number, size: number): void
+  swapData(
+    otherOrRawPointer: PossiblePointer<BufferF> | number,
+    size?: number
+  ): void {
+    // The single-arg overload accepts either a `BufferF` instance or a raw
+    // pointer to a `BufferF`; the two-arg overload accepts a raw float buffer
+    // pointer plus its element count. Distinguishing via arg count is
+    // unambiguous.
+    if (size === undefined) {
+      this.wasmInstance._bufferf_swap_data_with_buffer(
+        this.ptr,
+        resolvePtr(otherOrRawPointer as PossiblePointer<BufferF>)
+      )
+      return
+    }
+    this.wasmInstance._bufferf_swap_data_with_raw_pointer(
+      this.ptr,
+      otherOrRawPointer as number,
+      size
+    )
   }
 
   resetChannelPtr(): void {

@@ -42,62 +42,74 @@ export class InferenceHandler extends BaseWrapper {
     this.wasmInstance._inferencehandler_set_inference_backend(this.ptr, backend)
   }
 
-  prepare(hostConfig: PossiblePointer<HostConfig>): void {
-    this.wasmInstance._inferencehandler_prepare(this.ptr, resolvePtr(hostConfig))
+  getInferenceBackend(): number {
+    return this.wasmInstance._inferencehandler_get_inference_backend(this.ptr)
   }
 
-  prepareWithLatency(
+  prepare(hostConfig: PossiblePointer<HostConfig>): void
+  prepare(
     hostConfig: PossiblePointer<HostConfig>,
     customLatency: number,
-    tensorIndex: number
-  ): void {
-    this.wasmInstance._inferencehandler_prepare_with_latency(
-      this.ptr,
-      resolvePtr(hostConfig),
-      customLatency,
-      tensorIndex
-    )
-  }
-
-  prepareWithLatencyVector(
+    tensorIndex?: number
+  ): void
+  prepare(hostConfig: PossiblePointer<HostConfig>, customLatency: Uint32Array): void
+  prepare(
     hostConfig: PossiblePointer<HostConfig>,
-    latencyVector: Uint32Array
+    customLatency?: number | Uint32Array,
+    tensorIndex?: number
   ): void {
     const hostConfigPtr = resolvePtr(hostConfig)
-    const latencyPtr = this.wasmInstance._malloc(latencyVector.length * 4)
-    this.wasmInstance.HEAPU32.set(latencyVector, latencyPtr / 4)
+    if (customLatency === undefined) {
+      this.wasmInstance._inferencehandler_prepare(this.ptr, hostConfigPtr)
+      return
+    }
+    if (typeof customLatency === 'number') {
+      this.wasmInstance._inferencehandler_prepare_with_latency(
+        this.ptr,
+        hostConfigPtr,
+        customLatency,
+        tensorIndex ?? 0
+      )
+      return
+    }
+    const latencyPtr = this.wasmInstance._malloc(customLatency.length * 4)
+    this.wasmInstance.HEAPU32.set(customLatency, latencyPtr / 4)
     this.wasmInstance._inferencehandler_prepare_with_latency_vector(
       this.ptr,
       hostConfigPtr,
       latencyPtr,
-      latencyVector.length
+      customLatency.length
     )
     this.wasmInstance._free(latencyPtr)
   }
 
-  process(dataPtr: number, numSamples: number, tensorIndex: number = 0): number {
-    return this.wasmInstance._inferencehandler_process(
-      this.ptr,
-      dataPtr,
-      numSamples,
-      tensorIndex
-    )
-  }
-
-  processSeparate(
+  process(dataPtr: number, numSamples: number, tensorIndex?: number): number
+  process(
     inputPtr: number,
     numInputSamples: number,
     outputPtr: number,
     numOutputSamples: number,
-    tensorIndex: number = 0
+    tensorIndex?: number
+  ): number
+  process(
+    a: number,
+    b: number,
+    c?: number,
+    d?: number,
+    e?: number
   ): number {
+    // Discriminator: the separate-buffers overload always passes outputPtr at
+    // position 4 (`d`). When `d` is undefined we're in the in-place form.
+    if (d === undefined) {
+      return this.wasmInstance._inferencehandler_process(this.ptr, a, b, c ?? 0)
+    }
     return this.wasmInstance._inferencehandler_process_separate(
       this.ptr,
-      inputPtr,
-      numInputSamples,
-      outputPtr,
-      numOutputSamples,
-      tensorIndex
+      a,
+      b,
+      c!,
+      d,
+      e ?? 0
     )
   }
 
@@ -188,10 +200,11 @@ export class InferenceHandler extends BaseWrapper {
     return result
   }
 
-  getAvailableSamples(tensorIndex: number = 0): number {
+  getAvailableSamples(tensorIndex: number, channel: number = 0): number {
     return this.wasmInstance._inferencehandler_get_available_samples(
       this.ptr,
-      tensorIndex
+      tensorIndex,
+      channel
     )
   }
 

@@ -135,6 +135,13 @@ size_t vector_vector_int64_size(uintptr_t ptr) {
     return reinterpret_cast<std::vector<std::vector<int64_t>>*>(ptr)->size();
 }
 
+// Returns a non-owning pointer to the inner std::vector<int64_t> at `index`.
+// Valid only while the outer vector is alive and not resized.
+EMSCRIPTEN_KEEPALIVE
+uintptr_t vector_vector_int64_get(uintptr_t ptr, size_t index) {
+    return reinterpret_cast<uintptr_t>(&(*reinterpret_cast<std::vector<std::vector<int64_t>>*>(ptr))[index]);
+}
+
 // ------ VectorModelData ----
 EMSCRIPTEN_KEEPALIVE
 uintptr_t vector_model_data_create() {

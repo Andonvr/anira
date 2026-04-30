@@ -48,6 +48,11 @@ void inferencehandler_set_inference_backend(uintptr_t ptr, int backend) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+int inferencehandler_get_inference_backend(uintptr_t ptr) {
+    return static_cast<int>(reinterpret_cast<anira::InferenceHandler*>(ptr)->get_inference_backend());
+}
+
+EMSCRIPTEN_KEEPALIVE
 void inferencehandler_prepare(uintptr_t ptr, uintptr_t host_config_ptr) {
     auto* host_config = reinterpret_cast<anira::HostConfig*>(host_config_ptr);
     emscripten_log(EM_LOG_CONSOLE, "[InferenceHandler] prepare called with buffer_size=%.2f, sample_rate=%.2f", 
@@ -172,8 +177,8 @@ uintptr_t inferencehandler_get_latency_vector(uintptr_t ptr) {
 }
 
 EMSCRIPTEN_KEEPALIVE
-size_t inferencehandler_get_available_samples(uintptr_t ptr, size_t tensor_index) {
-    return reinterpret_cast<anira::InferenceHandler*>(ptr)->get_available_samples(tensor_index);
+size_t inferencehandler_get_available_samples(uintptr_t ptr, size_t tensor_index, size_t channel) {
+    return reinterpret_cast<anira::InferenceHandler*>(ptr)->get_available_samples(tensor_index, channel);
 }
 
 EMSCRIPTEN_KEEPALIVE

@@ -172,6 +172,15 @@ export class VectorVectorInt64 extends VectorBase {
     const innerPtr = resolvePtr(item)
     this.wasmInstance._vector_vector_int64_push_back(this.ptr, innerPtr)
   }
+
+  /**
+   * Get a non-owning pointer to the inner `VectorInt64T` at `index`.
+   * The returned pointer is valid only while this vector is alive and not
+   * resized.
+   */
+  get(index: number): number {
+    return this.wasmInstance._vector_vector_int64_get(this.ptr, index)
+  }
 }
 
 /**

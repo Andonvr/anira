@@ -59,6 +59,10 @@ export class ModelData extends BaseWrapper {
     return this.wasmInstance._modeldata_get_is_binary(this.ptr) !== 0
   }
 
+  getBackend(): number {
+    return this.wasmInstance._modeldata_get_backend(this.ptr)
+  }
+
   getDataPtr(): number {
     return this.wasmInstance._modeldata_get_data_ptr(this.ptr)
   }

@@ -3,6 +3,7 @@ export * from './AniraWeb'
 export * from './wrappers'
 export * from './backends'
 export * from './workers/inferenceWorkerHandler'
+export * from './helpers'
 
 export { waitForWorkerMessage } from './workers/messages'
 export type {

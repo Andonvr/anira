@@ -1,6 +1,6 @@
 import { type AniraWasmInstance } from '../factory'
 import { BaseWrapper, type PossiblePointer, resolvePtr } from './BaseWrapper'
-import type { TensorShapeList } from './Vectors'
+import { TensorShapeList } from './Vectors'
 
 /**
  * TypeScript wrapper for anira::TensorShape
@@ -33,6 +33,24 @@ export class TensorShape extends BaseWrapper {
 
   isUniversal(): boolean {
     return this.wasmInstance._tensorshape_is_universal(this.ptr) === 1
+  }
+
+  /**
+   * Returns a non-owning view into `m_tensor_input_shape`. Do **not** call
+   * `.destroy()` on it — the storage belongs to this `TensorShape`.
+   */
+  getTensorInputShape(): TensorShapeList {
+    const ptr = this.wasmInstance._tensorshape_get_input_shape(this.ptr)
+    return this.wrapPointer(TensorShapeList, ptr)
+  }
+
+  /**
+   * Returns a non-owning view into `m_tensor_output_shape`. See
+   * `getTensorInputShape` for ownership notes.
+   */
+  getTensorOutputShape(): TensorShapeList {
+    const ptr = this.wasmInstance._tensorshape_get_output_shape(this.ptr)
+    return this.wrapPointer(TensorShapeList, ptr)
   }
 
   equals(other: PossiblePointer<TensorShape>): boolean {

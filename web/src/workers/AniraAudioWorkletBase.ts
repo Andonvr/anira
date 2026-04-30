@@ -142,7 +142,7 @@ export class AniraAudioWorkletBase extends AudioWorkletProcessor {
       inputChannelViews[ch].fill(0, 0, bufferSize)
     }
 
-    const samplesProcessed = inferenceHandler.processSeparate(
+    const samplesProcessed = inferenceHandler.process(
       inputBufferPtr,
       bufferSize,
       outputBufferPtr,

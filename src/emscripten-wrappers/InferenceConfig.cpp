@@ -21,6 +21,11 @@ int get_inference_backend_custom() {
     return static_cast<int>(anira::InferenceBackend::CUSTOM);
 }
 
+EMSCRIPTEN_KEEPALIVE
+const char* anira_get_version() {
+    return ANIRA_VERSION;
+}
+
 // Debug helper
 EMSCRIPTEN_KEEPALIVE
 void inferenceconfig_log_debug(uintptr_t ptr) {
@@ -115,6 +120,11 @@ bool modeldata_get_is_binary(uintptr_t ptr) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+int modeldata_get_backend(uintptr_t ptr) {
+    return static_cast<int>(reinterpret_cast<anira::ModelData*>(ptr)->m_backend);
+}
+
+EMSCRIPTEN_KEEPALIVE
 void modeldata_set_is_binary(uintptr_t ptr, bool is_binary) {
     reinterpret_cast<anira::ModelData*>(ptr)->m_is_binary = is_binary;
 }
@@ -150,6 +160,18 @@ void tensorshape_destroy(uintptr_t ptr) {
 EMSCRIPTEN_KEEPALIVE
 bool tensorshape_is_universal(uintptr_t ptr) {
     return reinterpret_cast<anira::TensorShape*>(ptr)->is_universal();
+}
+
+// Returns a non-owning pointer to the input TensorShapeList stored in the TensorShape.
+// Valid as long as the TensorShape is alive.
+EMSCRIPTEN_KEEPALIVE
+uintptr_t tensorshape_get_input_shape(uintptr_t ptr) {
+    return reinterpret_cast<uintptr_t>(&reinterpret_cast<anira::TensorShape*>(ptr)->m_tensor_input_shape);
+}
+
+EMSCRIPTEN_KEEPALIVE
+uintptr_t tensorshape_get_output_shape(uintptr_t ptr) {
+    return reinterpret_cast<uintptr_t>(&reinterpret_cast<anira::TensorShape*>(ptr)->m_tensor_output_shape);
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -191,6 +213,22 @@ uintptr_t processingspec_create_full(
 }
 
 EMSCRIPTEN_KEEPALIVE
+uintptr_t processingspec_create_full_with_latency(
+    uintptr_t preprocess_ch_ptr, size_t pre_ch_count,
+    uintptr_t postprocess_ch_ptr, size_t post_ch_count,
+    uintptr_t preprocess_size_ptr, size_t pre_size_count,
+    uintptr_t postprocess_size_ptr, size_t post_size_count,
+    uintptr_t internal_latency_ptr, size_t internal_latency_count
+) {
+    auto& preprocess_ch = *reinterpret_cast<std::vector<size_t>*>(preprocess_ch_ptr);
+    auto& postprocess_ch = *reinterpret_cast<std::vector<size_t>*>(postprocess_ch_ptr);
+    auto& preprocess_size = *reinterpret_cast<std::vector<size_t>*>(preprocess_size_ptr);
+    auto& postprocess_size = *reinterpret_cast<std::vector<size_t>*>(postprocess_size_ptr);
+    auto& internal_latency = *reinterpret_cast<std::vector<size_t>*>(internal_latency_ptr);
+    return reinterpret_cast<uintptr_t>(new anira::ProcessingSpec(preprocess_ch, postprocess_ch, preprocess_size, postprocess_size, internal_latency));
+}
+
+EMSCRIPTEN_KEEPALIVE
 void processingspec_destroy(uintptr_t ptr) {
     delete reinterpret_cast<anira::ProcessingSpec*>(ptr);
 }
@@ -198,6 +236,48 @@ void processingspec_destroy(uintptr_t ptr) {
 EMSCRIPTEN_KEEPALIVE
 bool processingspec_equals(uintptr_t ptr, uintptr_t other_ptr) {
     return *reinterpret_cast<anira::ProcessingSpec*>(ptr) == *reinterpret_cast<anira::ProcessingSpec*>(other_ptr);
+}
+
+EMSCRIPTEN_KEEPALIVE
+size_t processingspec_get_preprocess_input_channels(uintptr_t ptr, size_t tensor_index) {
+    const auto& v = reinterpret_cast<anira::ProcessingSpec*>(ptr)->m_preprocess_input_channels;
+    return tensor_index < v.size() ? v[tensor_index] : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+size_t processingspec_get_postprocess_output_channels(uintptr_t ptr, size_t tensor_index) {
+    const auto& v = reinterpret_cast<anira::ProcessingSpec*>(ptr)->m_postprocess_output_channels;
+    return tensor_index < v.size() ? v[tensor_index] : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+size_t processingspec_get_preprocess_input_size(uintptr_t ptr, size_t tensor_index) {
+    const auto& v = reinterpret_cast<anira::ProcessingSpec*>(ptr)->m_preprocess_input_size;
+    return tensor_index < v.size() ? v[tensor_index] : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+size_t processingspec_get_postprocess_output_size(uintptr_t ptr, size_t tensor_index) {
+    const auto& v = reinterpret_cast<anira::ProcessingSpec*>(ptr)->m_postprocess_output_size;
+    return tensor_index < v.size() ? v[tensor_index] : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+size_t processingspec_get_internal_model_latency(uintptr_t ptr, size_t tensor_index) {
+    const auto& v = reinterpret_cast<anira::ProcessingSpec*>(ptr)->m_internal_model_latency;
+    return tensor_index < v.size() ? v[tensor_index] : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+size_t processingspec_get_tensor_input_size(uintptr_t ptr, size_t tensor_index) {
+    const auto& v = reinterpret_cast<anira::ProcessingSpec*>(ptr)->m_tensor_input_size;
+    return tensor_index < v.size() ? v[tensor_index] : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+size_t processingspec_get_tensor_output_size(uintptr_t ptr, size_t tensor_index) {
+    const auto& v = reinterpret_cast<anira::ProcessingSpec*>(ptr)->m_tensor_output_size;
+    return tensor_index < v.size() ? v[tensor_index] : 0;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -227,9 +307,27 @@ uintptr_t inferenceconfig_create_full(
     auto& models = *reinterpret_cast<std::vector<anira::ModelData>*>(model_data_ptrs);
     auto& shapes = *reinterpret_cast<std::vector<anira::TensorShape>*>(tensor_shape_ptrs);
     auto& spec = *reinterpret_cast<anira::ProcessingSpec*>(processing_spec_ptr);
-    
+
     return reinterpret_cast<uintptr_t>(
         new anira::InferenceConfig(models, shapes, spec, max_inference_time, warm_up, session_exclusive_processor, blocking_ratio, num_parallel_processors)
+    );
+}
+
+EMSCRIPTEN_KEEPALIVE
+uintptr_t inferenceconfig_create_auto_spec(
+    uintptr_t model_data_ptrs, size_t model_count,
+    uintptr_t tensor_shape_ptrs, size_t tensor_count,
+    float max_inference_time,
+    unsigned int warm_up,
+    bool session_exclusive_processor,
+    float blocking_ratio,
+    unsigned int num_parallel_processors
+) {
+    auto& models = *reinterpret_cast<std::vector<anira::ModelData>*>(model_data_ptrs);
+    auto& shapes = *reinterpret_cast<std::vector<anira::TensorShape>*>(tensor_shape_ptrs);
+
+    return reinterpret_cast<uintptr_t>(
+        new anira::InferenceConfig(models, shapes, max_inference_time, warm_up, session_exclusive_processor, blocking_ratio, num_parallel_processors)
     );
 }
 
@@ -323,6 +421,54 @@ bool inferenceconfig_equals(uintptr_t ptr, uintptr_t other_ptr) {
 EMSCRIPTEN_KEEPALIVE
 bool inferenceconfig_not_equals(uintptr_t ptr, uintptr_t other_ptr) {
     return !(*reinterpret_cast<anira::InferenceConfig*>(ptr) == *reinterpret_cast<anira::InferenceConfig*>(other_ptr));
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool inferenceconfig_is_model_binary(uintptr_t ptr, int backend) {
+    return reinterpret_cast<anira::InferenceConfig*>(ptr)->is_model_binary(to_backend(backend));
+}
+
+// Returns a non-owning pointer to the universal input TensorShapeList.
+// The pointer is valid for as long as the InferenceConfig is alive.
+EMSCRIPTEN_KEEPALIVE
+uintptr_t inferenceconfig_get_tensor_input_shape(uintptr_t ptr) {
+    const anira::TensorShapeList& shape = reinterpret_cast<anira::InferenceConfig*>(ptr)->get_tensor_input_shape();
+    return reinterpret_cast<uintptr_t>(&shape);
+}
+
+EMSCRIPTEN_KEEPALIVE
+uintptr_t inferenceconfig_get_tensor_output_shape(uintptr_t ptr) {
+    const anira::TensorShapeList& shape = reinterpret_cast<anira::InferenceConfig*>(ptr)->get_tensor_output_shape();
+    return reinterpret_cast<uintptr_t>(&shape);
+}
+
+EMSCRIPTEN_KEEPALIVE
+uintptr_t inferenceconfig_get_tensor_input_shape_for_backend(uintptr_t ptr, int backend) {
+    const anira::TensorShapeList& shape = reinterpret_cast<anira::InferenceConfig*>(ptr)->get_tensor_input_shape(to_backend(backend));
+    return reinterpret_cast<uintptr_t>(&shape);
+}
+
+EMSCRIPTEN_KEEPALIVE
+uintptr_t inferenceconfig_get_tensor_output_shape_for_backend(uintptr_t ptr, int backend) {
+    const anira::TensorShapeList& shape = reinterpret_cast<anira::InferenceConfig*>(ptr)->get_tensor_output_shape(to_backend(backend));
+    return reinterpret_cast<uintptr_t>(&shape);
+}
+
+// Returns a non-owning pointer to the underlying TensorShape selected for the given backend.
+EMSCRIPTEN_KEEPALIVE
+uintptr_t inferenceconfig_get_tensor_shape(uintptr_t ptr, int backend) {
+    const anira::TensorShape& shape = reinterpret_cast<anira::InferenceConfig*>(ptr)->get_tensor_shape(to_backend(backend));
+    return reinterpret_cast<uintptr_t>(&shape);
+}
+
+EMSCRIPTEN_KEEPALIVE
+float inferenceconfig_get_blocking_ratio(uintptr_t ptr) {
+    return reinterpret_cast<anira::InferenceConfig*>(ptr)->m_blocking_ratio;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void inferenceconfig_set_blocking_ratio(uintptr_t ptr, float value) {
+    reinterpret_cast<anira::InferenceConfig*>(ptr)->m_blocking_ratio = value;
 }
 
 } // extern "C"

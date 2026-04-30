@@ -23,3 +23,14 @@ Workers
 .. js:autofunction:: setupInferenceWorker
 
 .. js:autofunction:: waitForWorkerMessage
+
+Helpers
+-------
+
+.. js:autofunction:: randomSample
+
+.. js:autofunction:: fillBuffer
+
+.. js:autofunction:: pushBufferToRingbuffer
+
+.. js:autofunction:: getAniraVersion

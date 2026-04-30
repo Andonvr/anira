@@ -45,7 +45,7 @@ import { InferenceThread } from './wrappers/system/InferenceThread'
 
 export type ConfigureAudioWorkletIOOptions = Partial<AudioWorkletIOConfig> & {
   /**
-   * Overrides for the underlying {@link AudioWorkletNode} constructor options.
+   * Overrides for the underlying `AudioWorkletNode` constructor options.
    *
    * By default, the Web Audio node topology is derived from `inputChannels` /
    * `outputChannels` (i.e. `channelCount`, `channelCountMode: 'explicit'`, and
