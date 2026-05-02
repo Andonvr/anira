@@ -49,7 +49,7 @@ the inference-worker handler):
 
 .. _building:
 
-Building from source
+Building from Source
 --------------------
 
 Building ``anira-web`` is a two-stage process:
@@ -102,7 +102,7 @@ The CMake presets reference the Emscripten toolchain through the
    echo "$EMSDK"
 
 
-Build the WASM module
+Build the WASM Module
 ~~~~~~~~~~~~~~~~~~~~~
 
 From the ``anira/`` directory (the C++ project root), use the bundled
@@ -124,7 +124,7 @@ The resulting files are written directly into ``anira/web/wasm/``:
 * ``AniraWeb.wasm`` — the compiled module
 * ``AniraWeb.d.ts`` — TypeScript declarations emitted by ``--emit-tsd``
 
-Build the TypeScript package
+Build the TypeScript Package
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Once ``anira/web/wasm/`` is populated, build the npm package:

@@ -14,4 +14,9 @@ reference.
    :caption: anira-web
 
    installation_building
+   basic_usage
+   architecture
+   custom_audio_worklets
+   custom_pre_post_processing
+   custom_inference_backends
    reference/index

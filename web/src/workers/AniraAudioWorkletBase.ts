@@ -104,20 +104,95 @@ export class AniraAudioWorkletBase extends AudioWorkletProcessor {
     // Hook for subclasses that need one-time setup after configure.
   }
 
+  /**
+   * Copy a slice of `inputNode` channels into a contiguous range of
+   * `inputChannelViews`. Missing source channels are zero-filled.
+   */
+  protected copyAudioInputsToChannels(
+    inputNode: Float32Array[] | undefined,
+    state: AniraWorkletState,
+    bufferSize: number,
+    channelOffset = 0,
+    channelCount = state.inputChannelViews.length - channelOffset
+  ): void {
+    const views = state.inputChannelViews
+    const provided = inputNode?.length ?? 0
+    const copyCount = Math.min(provided, channelCount)
+    for (let ch = 0; ch < copyCount; ch++) {
+      views[channelOffset + ch].set(inputNode![ch], 0)
+    }
+    for (let ch = copyCount; ch < channelCount; ch++) {
+      views[channelOffset + ch].fill(0, 0, bufferSize)
+    }
+  }
+
+  /**
+   * Copy a contiguous range of `outputChannelViews` back into `outputNode`.
+   * No-op if no output node is connected or no samples were produced.
+   */
+  protected copyAudioOutputsFromChannels(
+    outputNode: Float32Array[] | undefined,
+    state: AniraWorkletState,
+    samplesProcessed: number,
+    channelOffset = 0,
+    channelCount = state.outputChannelViews.length - channelOffset
+  ): void {
+    if (!outputNode?.length || samplesProcessed <= 0) return
+    const views = state.outputChannelViews
+    const count = Math.min(outputNode.length, channelCount)
+    for (let ch = 0; ch < count; ch++) {
+      const src = views[channelOffset + ch]
+      const dst = outputNode[ch]
+      const n = Math.min(samplesProcessed, dst.length, state.ioConfig.maxBufferSize)
+      for (let i = 0; i < n; i++) {
+        dst[i] = src[i]
+      }
+    }
+  }
+
+  /**
+   * Build the `float***` pointer structure that `processMulti` expects, by
+   * slicing the existing `inputBufferPtr` / `outputBufferPtr` (both already
+   * `float**`s of channel pointers laid out contiguously by
+   * `configureAudioWorklet`).
+   *
+   * `channelsPerTensor` describes how the contiguous channel range is split
+   * across tensors — e.g. `[2, 1]` means tensor 0 owns channels 0–1 and
+   * tensor 1 owns channel 2. Also allocates a `size_t[numTensors]` array
+   * for per-tensor sample counts.
+   */
+  protected buildMultiTensorPointers(
+    direction: 'input' | 'output',
+    channelsPerTensor: number[]
+  ): { tensorPtrs: number; numSamplesPtr: number } {
+    const state = this.aniraState
+    if (!state) {
+      throw new Error('buildMultiTensorPointers called before configure')
+    }
+    const { aniraWeb } = state
+    const baseBufferPtr =
+      direction === 'input' ? state.inputBufferPtr : state.outputBufferPtr
+    const heapU32 = aniraWeb.getHeapU32()
+    const numTensors = channelsPerTensor.length
+
+    const tensorPtrs = aniraWeb.malloc(numTensors * 4)
+    let channelOffset = 0
+    for (let i = 0; i < numTensors; i++) {
+      heapU32[tensorPtrs / 4 + i] = baseBufferPtr + channelOffset * 4
+      channelOffset += channelsPerTensor[i]
+    }
+    const numSamplesPtr = aniraWeb.malloc(numTensors * 4)
+    return { tensorPtrs, numSamplesPtr }
+  }
+
   protected processAudioBlock(
     inputs: Float32Array[][],
     outputs: Float32Array[][],
     state: AniraWorkletState,
-    bufferSize: number
+    bufferSize: number,
+    _parameters: Record<string, Float32Array>
   ): void {
-    const {
-      inferenceHandler,
-      inputBufferPtr,
-      outputBufferPtr,
-      ioConfig,
-      inputChannelViews,
-      outputChannelViews,
-    } = state
+    const { inferenceHandler, inputBufferPtr, outputBufferPtr, ioConfig } = state
     const inputNode = inputs[ioConfig.inputNodeIndex]
     const outputNode = outputs[ioConfig.outputNodeIndex]
 
@@ -127,20 +202,7 @@ export class AniraAudioWorkletBase extends AudioWorkletProcessor {
       }
     }
 
-    if (!inputNode || inputNode.length === 0) {
-      for (let ch = 0; ch < inputChannelViews.length; ch++) {
-        inputChannelViews[ch].fill(0, 0, bufferSize)
-      }
-      return
-    }
-
-    const inputCount = Math.min(inputNode.length, inputChannelViews.length)
-    for (let ch = 0; ch < inputCount; ch++) {
-      inputChannelViews[ch].set(inputNode[ch], 0)
-    }
-    for (let ch = inputCount; ch < inputChannelViews.length; ch++) {
-      inputChannelViews[ch].fill(0, 0, bufferSize)
-    }
+    this.copyAudioInputsToChannels(inputNode, state, bufferSize)
 
     const samplesProcessed = inferenceHandler.process(
       inputBufferPtr,
@@ -150,23 +212,13 @@ export class AniraAudioWorkletBase extends AudioWorkletProcessor {
       0
     )
 
-    if (outputNode && outputNode.length > 0 && samplesProcessed > 0) {
-      const outputCount = Math.min(outputNode.length, outputChannelViews.length)
-      for (let ch = 0; ch < outputCount; ch++) {
-        const src = outputChannelViews[ch]
-        const dst = outputNode[ch]
-        const n = Math.min(samplesProcessed, dst.length, ioConfig.maxBufferSize)
-        for (let i = 0; i < n; i++) {
-          dst[i] = src[i]
-        }
-      }
-    }
+    this.copyAudioOutputsFromChannels(outputNode, state, samplesProcessed)
   }
 
   process(
     inputs: Float32Array[][],
     outputs: Float32Array[][],
-    _parameters: Record<string, Float32Array>
+    parameters: Record<string, Float32Array>
   ): boolean {
     if (!this.aniraState) {
       // AudioWorklet process() can run before the async configure handshake finishes.
@@ -183,7 +235,7 @@ export class AniraAudioWorkletBase extends AudioWorkletProcessor {
     )
     if (bufferSize === 0) return true
 
-    this.processAudioBlock(inputs, outputs, this.aniraState, bufferSize)
+    this.processAudioBlock(inputs, outputs, this.aniraState, bufferSize, parameters)
     return true
   }
 }
