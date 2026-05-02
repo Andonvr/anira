@@ -99,32 +99,6 @@ def _patch_js_domain_hide_class_prefix():
 _patch_js_domain_hide_class_prefix()
 
 
-def _collapse_single_arg(_app):
-    """Make single-argument JS callables render flat instead of bulleted.
-
-    Sphinx's `JSCallable.doc_field_types` registers the Arguments field as
-    `TypedField('arguments', ...)` with the default `can_collapse=False`. As a
-    result, even a method with a single parameter renders as a one-item
-    bulleted list — visually mismatched with the C++ / Python domain output
-    in the same project (those domains set `can_collapse=True`, so single
-    parameters render flat as `**name** (type) – description`).
-
-    Run as a `builder-inited` callback (registered in `setup()` below) so it
-    fires *after* sphinx-js's own `fix_js_make_xref` rebuilds the field list
-    with its `JSTypedField` subclass — otherwise our change gets overwritten.
-    """
-    from sphinx.domains.javascript import JSCallable
-    from sphinx.util.docfields import TypedField
-
-    for field in JSCallable.doc_field_types:
-        if isinstance(field, TypedField) and field.name == 'arguments':
-            field.can_collapse = True
-
-
-def setup(app):
-    app.connect('builder-inited', _collapse_single_arg)
-
-
 def _patch_sphinx_js_drop_exported_from():
     """Suppress sphinx-js's "exported from <module>" line.
 

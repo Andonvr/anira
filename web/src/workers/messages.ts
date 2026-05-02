@@ -90,6 +90,21 @@ export type AudioWorkletConfigureMessage = {
 // ------ Utility Functions --------
 // ---------------------------------
 
+/**
+ * Resolve once `worker` posts a message whose `data.type` matches
+ * `messageType`. The listener is registered for the duration of the
+ * wait and removed as soon as the matching message arrives.
+ *
+ * Used to await the handshake responses (`'ready'`,
+ * `'processorRegistered'`, `'stopped'`, …) that anira's worker
+ * runtime emits during setup. Messages whose `type` does not match
+ * are ignored and left for other listeners.
+ *
+ * @param worker - The target worker (or any object with the
+ *   `addEventListener` / `removeEventListener` `'message'` surface).
+ * @param messageType - Value of `data.type` to wait for.
+ * @returns A promise that resolves when the matching message is received.
+ */
 export const waitForWorkerMessage = (
   worker: Pick<Worker, 'addEventListener' | 'removeEventListener'>,
   messageType: string
