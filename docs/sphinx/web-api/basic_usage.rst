@@ -198,6 +198,16 @@ harmless; if your app swaps models, recreates handlers, or runs inside
 a long-lived test harness, ``destroy()`` is what you call when you're
 done with each wrapper.
 
+Inference workers are torn down separately. ``spinUpInferenceWorker()``
+returns an ``InferenceWorker`` handle whose ``stop()`` method halts the
+inference thread and terminates the underlying Web Worker:
+
+.. code-block:: typescript
+
+   const worker = await aniraWeb.spinUpInferenceWorker()
+   // ... use the worker ...
+   await worker.stop()
+
 See :doc:`architecture` for the full lifecycle story — which wrappers
 need ``destroy()``, which ones don't, and the order to tear them down
 in.

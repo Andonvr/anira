@@ -70,6 +70,13 @@ You can also replace the worker entry point itself:
      new URL('./customInferenceWorker.ts', import.meta.url)
    )
 
+``spinUpInferenceWorker()`` returns an ``InferenceWorker`` handle.
+When you're done with a worker — for instance when reconfiguring or
+unloading the model — call ``worker.stop()`` to halt its inference
+thread, terminate the underlying ``Worker``, and remove it from
+``aniraWeb.getActiveWorkers()``. Workers spun up but never stopped
+stay alive for the lifetime of the page.
+
 Audio Worklet Thread
 --------------------
 
