@@ -218,7 +218,7 @@ export class AniraWeb {
     return this.wasmInstance.HEAPF32
   }
 
-  getHeapU32(): Float32Array {
+  getHeapU32(): Uint32Array {
     return this.wasmInstance.HEAPU32
   }
 

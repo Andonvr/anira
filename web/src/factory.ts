@@ -25,7 +25,7 @@ export type AniraWasmConfig = {
 
 export type AniraWasmInstance = Omit<MainModule, 'HEAPF32' | 'HEAPU32'> & {
   HEAPF32: Float32Array
-  HEAPU32: Float32Array
+  HEAPU32: Uint32Array
 }
 
 // Export factory with WASM locateFile override
@@ -54,6 +54,6 @@ export const createAniraWasm = async (
   return {
     ...out,
     HEAPF32: out.HEAPF32 as Float32Array,
-    HEAPU32: out.HEAPU32 as Float32Array,
+    HEAPU32: out.HEAPU32 as Uint32Array,
   }
 }
