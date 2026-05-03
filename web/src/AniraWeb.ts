@@ -150,6 +150,18 @@ export class AniraWeb {
     return { wasmInstance, wasmMemory, prePostRegistry }
   }
 
+  /**
+   * Instantiate the WASM module and return a ready-to-use ``AniraWeb``.
+   * This is the standard entry point — see :doc:`../../basic_usage`.
+   *
+   * @param config - Optional Emscripten module overrides plus an
+   *   ``processPrePost`` hook for users running their own JS pre/post
+   *   dispatch outside the registry. Most callers pass nothing.
+   * @param memory - Optional pre-allocated shared
+   *   ``WebAssembly.Memory``. Used when reusing memory across
+   *   multiple ``AniraWeb`` instances; defaults to a fresh 8192-page
+   *   shared memory.
+   */
   static async create(
     config?: AniraWasmConfig & Record<string, unknown>,
     memory?: WebAssembly.Memory
@@ -194,36 +206,65 @@ export class AniraWeb {
     this.TensorShapeList = createFactory(module, TensorShapeList)
   }
 
+  /**
+   * Restore Emscripten's stack pointer to a previously saved value.
+   * Used internally when re-entering WASM from a worker thread; rarely
+   * needed in user code.
+   */
   stackRestore(ptr: number): void {
     this.wasmInstance.stackRestore(ptr)
   }
 
+  /** Allocate ``size`` bytes in the WASM heap and return the pointer. */
   malloc(size: number): number {
     return this.wasmInstance._malloc(size)
   }
 
+  /** Free a pointer previously returned by :js:meth:`malloc`. */
   free(ptr: number): void {
     this.wasmInstance._free(ptr)
   }
 
+  /** Return the shared ``WebAssembly.Memory`` backing the WASM module. */
   getMemory(): WebAssembly.Memory {
     return this.memory
   }
 
+  /**
+   * Return the underlying Emscripten module instance. Use this to call
+   * raw WASM exports directly when the high-level wrappers don't cover
+   * what you need.
+   */
   getWasmInstance(): AniraWasmInstance {
     return this.wasmInstance
   }
 
+  /**
+   * Return a ``Float32Array`` view over the WASM module's ``HEAPF32``
+   * buffer. Useful for reading or writing float32 data at raw heap
+   * offsets.
+   */
   getHeapF32(): Float32Array {
     return this.wasmInstance.HEAPF32
   }
 
+  /**
+   * Return a ``Uint32Array`` view over the WASM module's ``HEAPU32``
+   * buffer. Useful for reading or writing pointer-sized values at raw
+   * heap offsets — for example the channel pointer arrays referenced
+   * by :js:meth:`AniraAudioWorkletBase.buildMultiTensorPointers`.
+   */
   getHeapU32(): Uint32Array {
     return this.wasmInstance.HEAPU32
   }
 
   // ---- General utilities ----
 
+  /**
+   * Encode ``str`` as a null-terminated UTF-8 string in the WASM
+   * heap and return the pointer. The caller is responsible for
+   * :js:meth:`free`-ing the returned pointer when done.
+   */
   allocWasmString(str: string): number {
     const bytes = new TextEncoder().encode(str + '\0')
     const ptr = this.wasmInstance._malloc(bytes.length)
@@ -248,26 +289,64 @@ export class AniraWeb {
     return base + WORKER_STACK_SIZE
   }
 
+  /**
+   * Register a custom JS inference backend so the inference worker
+   * can dispatch into it. Required for any backend that uses
+   * ``InferenceBackend.CUSTOM`` — see :doc:`../../custom_inference_backends`.
+   * The descriptor is also forwarded to all currently-running
+   * inference workers so they can construct the backend on their side.
+   */
   async registerProcessor(backend: JSBackendBase, className: string): Promise<void> {
     const descriptor: ProcessorDescriptor = { backend, className }
     this.registeredProcessors.push(descriptor)
     await Promise.all(this.activeWorkers.map((w) => w.registerProcessor(descriptor)))
   }
 
+  /**
+   * Register a :js:class:`JSPrePostProcessor` subclass instance so
+   * that ``preProcess`` / ``postProcess`` callbacks fired from C++
+   * route to its overrides. Call this on the audio worklet thread
+   * after constructing the subclass with ``createFromPointer`` —
+   * see :doc:`../../custom_pre_post_processing`.
+   */
   registerPrePostProcessor(prePostProcessor: JSPrePostProcessor): void {
     this.registeredPrePostProcessors.set(prePostProcessor.getPointer(), prePostProcessor)
   }
 
+  /**
+   * Inverse of :js:meth:`registerPrePostProcessor`. Removes the
+   * registration so the subclass no longer receives pre/post
+   * callbacks. Accepts either the wrapper instance or its raw pointer.
+   */
   unregisterPrePostProcessor(
     prePostProcessor: PossiblePointer<JSPrePostProcessor>
   ): void {
     this.registeredPrePostProcessors.delete(resolvePtr(prePostProcessor))
   }
 
+  /**
+   * Return the inference workers currently spawned by this
+   * ``AniraWeb``. The list is updated automatically when
+   * :js:meth:`spinUpInferenceWorker` adds a worker or
+   * ``InferenceWorker.stop`` removes one.
+   */
   getActiveWorkers(): readonly InferenceWorker[] {
     return this.activeWorkers
   }
 
+  /**
+   * Spawn a new inference worker (a Web Worker hosting an
+   * ``InferenceThread``) and return its handle. Inference runs there
+   * instead of on the audio thread, keeping the audio worklet
+   * real-time-safe. Spin up multiple workers to run inference on
+   * multiple batches in parallel — see :doc:`../../architecture`.
+   *
+   * @param workerOrUrl - Optional override for the worker entry point.
+   *   Pass a ``URL`` to load a custom worker file (used by user-written
+   *   JS backends, see :doc:`../../custom_inference_backends`), or an
+   *   already-constructed ``Worker`` instance to take ownership of one
+   *   you spawned yourself. Omit to use anira's bundled default worker.
+   */
   async spinUpInferenceWorker(workerOrUrl?: Worker | URL): Promise<InferenceWorker> {
     const inferenceThread = this.InferenceThread()
 
@@ -334,6 +413,18 @@ export class AniraWeb {
     return inferenceWorker
   }
 
+  /**
+   * Install anira's audio worklet module on the given ``AudioContext``.
+   * Must be called once per context before
+   * :js:meth:`configureAudioWorklet`.
+   *
+   * @param audioContext - The Web Audio context to install the
+   *   worklet on.
+   * @param workletUrl - Optional URL of a custom worklet file (a
+   *   subclass of :js:class:`AniraAudioWorkletBase`, see
+   *   :doc:`../../custom_audio_worklets`). Omit to use anira's bundled
+   *   default worklet, which handles the simple single-tensor case.
+   */
   async registerAudioWorkletForContext(
     audioContext: AudioContext,
     workletUrl?: string | URL
@@ -343,6 +434,27 @@ export class AniraWeb {
     await audioContext.audioWorklet.addModule(url)
   }
 
+  /**
+   * Construct an ``AudioWorkletNode`` wired to ``inferenceHandlerPtr``
+   * and ``prePostProcessorPtr`` and complete the configure handshake
+   * so the worklet is ready to process audio. Allocates the input /
+   * output scratch buffers in WASM memory and posts them to the
+   * worklet thread.
+   *
+   * @param audioContext - The Web Audio context to attach the node to.
+   * @param inferenceHandlerPtr - The :js:class:`InferenceHandler` (or
+   *   its raw pointer) that will run inference for this worklet.
+   * @param prePostProcessorPtr - The :js:class:`PrePostProcessor`
+   *   used during inference.
+   * @param audioWorkletNodeName - Processor name registered via
+   *   ``registerProcessor`` inside the worklet file. Defaults to
+   *   ``'inference-processor'`` (the bundled default worklet's name).
+   * @param ioOptions - Channel counts, ``maxBufferSize``, and
+   *   optional ``audioWorkletNodeOptions`` overrides. See
+   *   :doc:`../../custom_audio_worklets` for the multi-tensor and
+   *   custom-buffer-size cases.
+   * @returns The connected, ready-to-use ``AudioWorkletNode``.
+   */
   async configureAudioWorklet(
     audioContext: AudioContext,
     inferenceHandlerPtr: PossiblePointer<InferenceHandler>,
