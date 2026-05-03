@@ -55,6 +55,12 @@ jobs:
           test -n "$EMSDK"
           emcc --version
 
+      - name: pin global typescript for emscripten --emit-tsd
+        run: |
+          sudo npm i -g typescript@5.9
+          which tsc
+          tsc --version
+
       - name: configure wasm
         run: cmake --preset wasm-release
 
