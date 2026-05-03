@@ -20,30 +20,25 @@ jobs:
           submodules: true
           fetch-depth: 0
 
-      - name: derive version and mode
+      - name: derive version
         id: version
         shell: bash
         run: |
           set -euo pipefail
+          sha=$(git rev-parse --short HEAD)
           if tag=$(git describe --tags --exact-match HEAD 2>/dev/null); then
             version="${tag#v}"
-            mode="publish"
+          elif desc=$(git describe --tags --long --match 'v*.*.*' 2>/dev/null); then
+            base_and_n="${desc%-g*}"
+            base="${base_and_n%-*}"
+            base="${base#v}"
+            n="${base_and_n##*-}"
+            version="${base}-rc.${n}.${sha}"
           else
-            sha=$(git rev-parse --short HEAD)
-            if desc=$(git describe --tags --long --match 'v*.*.*' 2>/dev/null); then
-              base_and_n="${desc%-g*}"
-              base="${base_and_n%-*}"
-              base="${base#v}"
-              n="${base_and_n##*-}"
-              version="${base}-rc.${n}.${sha}"
-            else
-              version="0.0.0-rc.0.${sha}"
-            fi
-            mode="pack"
+            version="0.0.0-rc.0.${sha}"
           fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "mode=${mode}" >> "$GITHUB_OUTPUT"
-          echo "Derived version: ${version} (mode: ${mode})"
+          echo "Derived version: ${version}"
 
       - name: install system deps
         run: sudo apt-get update && sudo apt-get install -y ninja-build
@@ -51,14 +46,20 @@ jobs:
       - name: setup emsdk
         uses: mymindstorm/setup-emsdk@v14
         with:
-          version: latest
-          actions-cache-folder: emsdk-cache
+          version: 4.0.23
+          actions-cache-folder: emsdk-cache-4.0.23
+
+      - name: verify EMSDK env
+        run: |
+          echo "EMSDK=$EMSDK"
+          test -n "$EMSDK"
+          emcc --version
 
       - name: configure wasm
-        run: cmake --preset web-prod
+        run: cmake --preset wasm-release
 
       - name: build wasm
-        run: cmake --build --preset web-prod -j
+        run: cmake --build --preset wasm-release -j
 
       - name: setup node
         uses: actions/setup-node@v4
@@ -80,23 +81,14 @@ jobs:
         working-directory: web
         run: npm run build
 
-      - name: npm publish
-        if: steps.version.outputs.mode == 'publish'
-        working-directory: web
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
-
       - name: npm pack
         id: pack
-        if: steps.version.outputs.mode == 'pack'
         working-directory: web
         run: |
           tarball=$(npm pack --json | jq -r '.[0].filename')
           echo "tarball=${tarball}" >> "$GITHUB_OUTPUT"
 
-      - name: upload rc artifact
-        if: steps.version.outputs.mode == 'pack'
+      - name: upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: anira-web-${{ steps.version.outputs.version }}
@@ -107,14 +99,9 @@ jobs:
         shell: bash
         run: |
           {
-            echo "### anira-web ${{ steps.version.outputs.mode }}"
+            echo "### anira-web packed"
             echo ""
             echo "- **Version:** \`${{ steps.version.outputs.version }}\`"
-            echo "- **Mode:** \`${{ steps.version.outputs.mode }}\`"
-            if [ "${{ steps.version.outputs.mode }}" = "publish" ]; then
-              echo "- **npm:** https://www.npmjs.com/package/anira-web/v/${{ steps.version.outputs.version }}"
-            else
-              echo "- **Artifact:** \`anira-web-${{ steps.version.outputs.version }}\` (tarball: \`${{ steps.pack.outputs.tarball }}\`)"
-              echo "- Promote with the \`publish_web_from_run\` workflow using run ID \`${{ github.run_id }}\`."
-            fi
+            echo "- **Artifact:** \`anira-web-${{ steps.version.outputs.version }}\` (tarball: \`${{ steps.pack.outputs.tarball }}\`)"
+            echo "- Promote with the \`publish_web_from_run\` workflow using run ID \`${{ github.run_id }}\`."
           } >> "$GITHUB_STEP_SUMMARY"
