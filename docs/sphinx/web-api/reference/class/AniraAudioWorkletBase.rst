@@ -150,81 +150,57 @@ Class AniraAudioWorkletBase
 Type AniraWorkletState
 ----------------------
 
-.. js:class:: AniraWorkletState
+The configuration the main thread hands to the worklet during the
+configure handshake. Exposed read-only on
+:js:attr:`AniraAudioWorkletBase.aniraState` and re-passed as the
+``state`` argument to :js:meth:`AniraAudioWorkletBase.onConfigured`
+and :js:meth:`AniraAudioWorkletBase.processAudioBlock`.
 
-   The configuration the main thread hands to the worklet during the
-   configure handshake. Exposed read-only on
-   :js:attr:`AniraAudioWorkletBase.aniraState` and re-passed as the
-   ``state`` argument to :js:meth:`AniraAudioWorkletBase.onConfigured`
-   and :js:meth:`AniraAudioWorkletBase.processAudioBlock`.
+``aniraWeb`` (:js:class:`AniraWeb`)
+   The :js:class:`AniraWeb` instance for the worklet thread.
+   Exposes ``malloc``, ``getHeapU32``, ``getHeapF32``,
+   ``getWasmInstance``, factories, and so on.
 
-   .. js:attribute:: aniraWeb
-      :type: AniraWeb
+``inferenceHandler`` (:js:class:`InferenceHandler`)
+   The :js:class:`InferenceHandler` proxy. Call ``processMulti``
+   (or ``process``) on it from ``processAudioBlock``.
 
-      The :js:class:`AniraWeb` instance for the worklet thread.
-      Exposes ``malloc``, ``getHeapU32``, ``getHeapF32``,
-      ``getWasmInstance``, factories, and so on.
+``prePostProcessorPtr`` (number)
+   Raw pointer to the C++ ``PrePostProcessor`` instance, used to
+   construct a :js:class:`JSPrePostProcessor` subclass via
+   ``createFromPointer``.
 
-   .. js:attribute:: inferenceHandler
-      :type: InferenceHandler
+``inputBufferPtr`` (number)
+   ``float**`` channel pointer array, laid out contiguously by
+   ``configureAudioWorklet``. Pass directly to
+   ``inferenceHandler.process`` for single-tensor models, or hand
+   to :js:meth:`AniraAudioWorkletBase.buildMultiTensorPointers`
+   for multi-tensor splits.
 
-      The :js:class:`InferenceHandler` proxy. Call ``processMulti``
-      (or ``process``) on it from ``processAudioBlock``.
+``outputBufferPtr`` (number)
+   Same as ``inputBufferPtr`` but for the output side.
 
-   .. js:attribute:: prePostProcessorPtr
-      :type: number
+``inputDataBuffer`` (number)
+   WASM heap offset for the per-channel input scratch buffers.
+   Each channel occupies ``maxBufferSize * 4`` bytes, laid out
+   contiguously.
 
-      Raw pointer to the C++ ``PrePostProcessor`` instance, used to
-      construct a :js:class:`JSPrePostProcessor` subclass via
-      ``createFromPointer``.
+``outputDataBuffer`` (number)
+   WASM heap offset for the per-channel output scratch buffers.
 
-   .. js:attribute:: inputBufferPtr
-      :type: number
+``inputChannelViews`` (``Float32Array[]``)
+   ``Float32Array`` views over the per-channel slices of the
+   input scratch buffers. Use these to copy audio in without
+   rebuilding views every block.
 
-      ``float**`` channel pointer array, laid out contiguously by
-      ``configureAudioWorklet``. Pass directly to
-      ``inferenceHandler.process`` for single-tensor models, or hand
-      to :js:meth:`AniraAudioWorkletBase.buildMultiTensorPointers`
-      for multi-tensor splits.
+``outputChannelViews`` (``Float32Array[]``)
+   ``Float32Array`` views over the per-channel slices of the
+   output scratch buffers.
 
-   .. js:attribute:: outputBufferPtr
-      :type: number
+``ioConfig`` (``AudioWorkletIOConfig``)
+   ``{ maxBufferSize, inputChannels, outputChannels,
+   inputNodeIndex, outputNodeIndex }``.
 
-      Same as ``inputBufferPtr`` but for the output side.
-
-   .. js:attribute:: inputDataBuffer
-      :type: number
-
-      WASM heap offset for the per-channel input scratch buffers.
-      Each channel occupies ``maxBufferSize * 4`` bytes, laid out
-      contiguously.
-
-   .. js:attribute:: outputDataBuffer
-      :type: number
-
-      WASM heap offset for the per-channel output scratch buffers.
-
-   .. js:attribute:: inputChannelViews
-      :type: Float32Array[]
-
-      ``Float32Array`` views over the per-channel slices of the
-      input scratch buffers. Use these to copy audio in without
-      rebuilding views every block.
-
-   .. js:attribute:: outputChannelViews
-      :type: Float32Array[]
-
-      ``Float32Array`` views over the per-channel slices of the
-      output scratch buffers.
-
-   .. js:attribute:: ioConfig
-      :type: AudioWorkletIOConfig
-
-      ``{ maxBufferSize, inputChannels, outputChannels,
-      inputNodeIndex, outputNodeIndex }``.
-
-   .. js:attribute:: wasmMemory
-      :type: WebAssembly.Memory
-
-      The shared ``WebAssembly.Memory``. Useful when you need a
-      typed-array view over a custom region of the heap.
+``wasmMemory`` (``WebAssembly.Memory``)
+   The shared ``WebAssembly.Memory``. Useful when you need a
+   typed-array view over a custom region of the heap.

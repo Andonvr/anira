@@ -18,6 +18,7 @@ export class JSPrePostProcessor extends PrePostProcessor {
     super(wasmInstance, inferenceConfig, wasmInstance._jsprepostprocessor_create)
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   override destroy(): void {
     this._destroy(this.wasmInstance._jsprepostprocessor_destroy)
   }

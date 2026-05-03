@@ -47,22 +47,27 @@ export class ModelData extends BaseWrapper {
     }
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   destroy(): void {
     this._destroy(this.wasmInstance._modeldata_destroy)
   }
 
+  /** Mirrors the :cpp:member:`anira::ModelData::m_size` field. */
   getSize(): number {
     return this.wasmInstance._modeldata_get_size(this.ptr)
   }
 
+  /** Mirrors the :cpp:member:`anira::ModelData::m_is_binary` field. */
   isBinary(): boolean {
     return this.wasmInstance._modeldata_get_is_binary(this.ptr) !== 0
   }
 
+  /** Mirrors the :cpp:member:`anira::ModelData::m_backend` field. */
   getBackend(): number {
     return this.wasmInstance._modeldata_get_backend(this.ptr)
   }
 
+  /** Mirrors the :cpp:member:`anira::ModelData::m_data` field. */
   getDataPtr(): number {
     return this.wasmInstance._modeldata_get_data_ptr(this.ptr)
   }

@@ -100,10 +100,12 @@ export class ProcessingSpec extends BaseWrapper {
     )
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   destroy(): void {
     this._destroy(this.wasmInstance._processingspec_destroy)
   }
 
+  /** Mirrors the :cpp:member:`anira::ProcessingSpec::m_preprocess_input_channels` field. */
   getPreprocessInputChannels(tensorIndex: number = 0): number {
     return this.wasmInstance._processingspec_get_preprocess_input_channels(
       this.ptr,
@@ -111,6 +113,7 @@ export class ProcessingSpec extends BaseWrapper {
     )
   }
 
+  /** Mirrors the :cpp:member:`anira::ProcessingSpec::m_postprocess_output_channels` field. */
   getPostprocessOutputChannels(tensorIndex: number = 0): number {
     return this.wasmInstance._processingspec_get_postprocess_output_channels(
       this.ptr,
@@ -118,6 +121,7 @@ export class ProcessingSpec extends BaseWrapper {
     )
   }
 
+  /** Mirrors the :cpp:member:`anira::ProcessingSpec::m_preprocess_input_size` field. */
   getPreprocessInputSize(tensorIndex: number = 0): number {
     return this.wasmInstance._processingspec_get_preprocess_input_size(
       this.ptr,
@@ -125,6 +129,7 @@ export class ProcessingSpec extends BaseWrapper {
     )
   }
 
+  /** Mirrors the :cpp:member:`anira::ProcessingSpec::m_postprocess_output_size` field. */
   getPostprocessOutputSize(tensorIndex: number = 0): number {
     return this.wasmInstance._processingspec_get_postprocess_output_size(
       this.ptr,
@@ -132,6 +137,7 @@ export class ProcessingSpec extends BaseWrapper {
     )
   }
 
+  /** Mirrors the :cpp:member:`anira::ProcessingSpec::m_internal_model_latency` field. */
   getInternalModelLatency(tensorIndex: number = 0): number {
     return this.wasmInstance._processingspec_get_internal_model_latency(
       this.ptr,
@@ -139,18 +145,14 @@ export class ProcessingSpec extends BaseWrapper {
     )
   }
 
+  /** Mirrors the :cpp:member:`anira::ProcessingSpec::m_tensor_input_size` field. */
   getTensorInputSize(tensorIndex: number = 0): number {
-    return this.wasmInstance._processingspec_get_tensor_input_size(
-      this.ptr,
-      tensorIndex
-    )
+    return this.wasmInstance._processingspec_get_tensor_input_size(this.ptr, tensorIndex)
   }
 
+  /** Mirrors the :cpp:member:`anira::ProcessingSpec::m_tensor_output_size` field. */
   getTensorOutputSize(tensorIndex: number = 0): number {
-    return this.wasmInstance._processingspec_get_tensor_output_size(
-      this.ptr,
-      tensorIndex
-    )
+    return this.wasmInstance._processingspec_get_tensor_output_size(this.ptr, tensorIndex)
   }
 
   equals(other: PossiblePointer<ProcessingSpec>): boolean {

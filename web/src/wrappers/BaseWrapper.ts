@@ -3,7 +3,7 @@ import type { AniraWasmInstance } from '../factory'
 /** Accepts either a raw WASM pointer or a wrapper instance. */
 export type PossiblePointer<T extends BaseWrapper = BaseWrapper> = T | number
 
-/** Resolve a `Pointer` to a raw numeric pointer. */
+/** Resolve a `PossiblePointer` to a raw numeric pointer. */
 export const resolvePtr = (value: PossiblePointer): number => {
   return typeof value === 'number' ? value : value.getPointer()
 }
@@ -35,6 +35,7 @@ export abstract class BaseWrapper {
     return instance
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   abstract destroy(): void
 
   static createFromPointer<T extends BaseWrapper>(

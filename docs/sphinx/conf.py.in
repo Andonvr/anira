@@ -187,6 +187,23 @@ def _patch_sphinx_js_render_overloads():
         return t.get('name') or kind or ''
 
     # ---- Per-signature param/return extraction ----
+    def extract_description(comment):
+        # Reassemble TypeDoc's tokenised summary (mix of 'text' and 'code'
+        # parts) into a single RST string. Code spans are rendered with their
+        # original backticks intact so RST inline literals/roles survive.
+        if not isinstance(comment, dict):
+            return ''
+        parts = []
+        for p in comment.get('summary') or []:
+            kind = p.get('kind')
+            text = p.get('text', '')
+            if kind == 'code':
+                # `text` already includes the backticks (e.g. ``foo``).
+                parts.append(text)
+            else:
+                parts.append(text)
+        return ''.join(parts)
+
     def extract_signature(sig):
         params = []
         for p in sig.get('parameters') or []:
@@ -200,6 +217,7 @@ def _patch_sphinx_js_render_overloads():
         return {
             'params': params,
             'returns': render_type_node(sig.get('type')),
+            'description': extract_description(sig.get('comment')),
         }
 
     def fmt_formal_params(params):
@@ -263,6 +281,13 @@ def _patch_sphinx_js_render_overloads():
         params = sig['params']
         formal = fmt_formal_params(params)
         lines = [f'.. js:function:: {method_name}{formal}', '']
+        description = sig.get('description') or ''
+        if description.strip():
+            # Indent every line into the directive body. Blank lines must
+            # stay blank (no indent) so RST treats them as paragraph breaks.
+            for line in description.splitlines():
+                lines.append(f'   {line}' if line.strip() else '')
+            lines.append('')
         for p in params:
             if p['type']:
                 lines.append(f'   :type {p["name"]}: {fmt_type(p["type"])}')

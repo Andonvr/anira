@@ -117,6 +117,30 @@ is handed to :js:class:`InferenceHandler` as a third argument.
 ``registerProcessor`` ships the backend reference over to the
 inference worker so the WASM-side dispatch can call back into it.
 
+.. note::
+   ``ModelData`` accepts either an ``ArrayBuffer`` (the binary form,
+   shown above) or a URL string. If you pass a URL, anira hands the
+   string to your backend as-is — your backend decides how to load
+   it. The built-in :js:class:`ONNXRuntimeWebBackend` uses this to
+   fetch the model itself; ``modelData.isBinary()`` tells you which
+   form is in play:
+
+   .. code-block:: typescript
+
+      if (modelData.isBinary()) {
+        const ptr = modelData.getDataPtr()
+        const size = modelData.getSize()
+        modelBytes = new Uint8Array(wasm.HEAPU32.buffer, ptr, size).slice()
+      } else {
+        const pathBytes = new Uint8Array(
+          wasm.HEAPU32.buffer,
+          modelData.getDataPtr(),
+          modelData.getSize()
+        ).slice()
+        const modelUrl = new TextDecoder().decode(pathBytes)
+        modelBytes = new Uint8Array(await (await fetch(modelUrl)).arrayBuffer())
+      }
+
 .. warning::
    The custom backend runs on the inference worker thread, not on the
    audio worklet thread, so it doesn't block the real-time callback

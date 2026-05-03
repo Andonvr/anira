@@ -27,17 +27,18 @@ export class TensorShape extends BaseWrapper {
     )
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   destroy(): void {
     this._destroy(this.wasmInstance._tensorshape_destroy)
   }
 
+  /** Mirrors :cpp:func:`anira::TensorShape::is_universal`. */
   isUniversal(): boolean {
     return this.wasmInstance._tensorshape_is_universal(this.ptr) === 1
   }
 
   /**
-   * Returns a non-owning view into `m_tensor_input_shape`. Do **not** call
-   * `.destroy()` on it — the storage belongs to this `TensorShape`.
+   * Mirrors the :cpp:member:`anira::TensorShape::m_tensor_input_shape` field.
    */
   getTensorInputShape(): TensorShapeList {
     const ptr = this.wasmInstance._tensorshape_get_input_shape(this.ptr)
@@ -45,8 +46,7 @@ export class TensorShape extends BaseWrapper {
   }
 
   /**
-   * Returns a non-owning view into `m_tensor_output_shape`. See
-   * `getTensorInputShape` for ownership notes.
+   * Mirrors the :cpp:member:`anira::TensorShape::m_tensor_output_shape` field.
    */
   getTensorOutputShape(): TensorShapeList {
     const ptr = this.wasmInstance._tensorshape_get_output_shape(this.ptr)

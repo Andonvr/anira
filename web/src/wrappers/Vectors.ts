@@ -26,6 +26,7 @@ export class VectorSizeT extends VectorBase {
     if (values) for (const v of values) this.push(v)
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   destroy(): void {
     this._destroy(this.wasmInstance._vector_size_t_destroy)
   }
@@ -52,6 +53,7 @@ export class VectorInt64T extends VectorBase {
     if (values) for (const v of values) this.push(v)
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   destroy(): void {
     this._destroy(this.wasmInstance._vector_int64_t_destroy)
   }
@@ -78,6 +80,7 @@ export class VectorFloat extends VectorBase {
     if (values) for (const v of values) this.push(v)
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   destroy(): void {
     this._destroy(this.wasmInstance._vector_float_destroy)
   }
@@ -104,6 +107,7 @@ export class VectorUnsignedInt extends VectorBase {
     if (values) for (const v of values) this.push(v)
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   destroy(): void {
     this._destroy(this.wasmInstance._vector_unsigned_int_destroy)
   }
@@ -160,6 +164,7 @@ export class VectorVectorInt64 extends VectorBase {
     }
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   destroy(): void {
     this._destroy(this.wasmInstance._vector_vector_int64_destroy)
   }
@@ -207,6 +212,7 @@ export class VectorModelData extends VectorBase {
     if (items) for (const v of items) this.push(v)
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   destroy(): void {
     this._destroy(this.wasmInstance._vector_model_data_destroy)
   }
@@ -231,6 +237,7 @@ export class VectorTensorShape extends VectorBase {
     if (items) for (const v of items) this.push(v)
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   destroy(): void {
     this._destroy(this.wasmInstance._vector_tensor_shape_destroy)
   }
@@ -255,6 +262,7 @@ export class VectorRingBuffer extends VectorBase {
     if (items) for (const v of items) this.push(v)
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   destroy(): void {
     this._destroy(this.wasmInstance._vector_ring_buffer_destroy)
   }
@@ -289,6 +297,7 @@ export class VectorBufferF extends VectorBase {
     if (items) for (const v of items) this.push(v)
   }
 
+  /** Free the underlying C++ object. See :ref:`lifecycle-and-cleanup` for when to call this. */
   destroy(): void {
     this._destroy(this.wasmInstance._vector_buffer_f_destroy)
   }

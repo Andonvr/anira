@@ -117,3 +117,89 @@ each with its own page:
 Custom pre/post processing **requires** a custom worklet (because the
 subclass must be instantiated on the audio thread); custom worklets and
 custom backends are otherwise independent and can be combined freely.
+
+The JS ↔ WASM Bridge
+--------------------
+
+C++ objects live in WASM-managed memory and are referenced by raw
+numeric pointers. The TypeScript wrappers (``InferenceHandler``,
+``PrePostProcessor``, ``BufferF``, …) extend :js:class:`BaseWrapper`,
+which holds two fields per instance: ``ptr`` (the C++ pointer) and
+``wasmInstance`` (the Emscripten module). Every wrapper method
+forwards into a ``_<class>_<method>`` C export with ``this.ptr`` as
+the first argument.
+
+Most wrapper APIs accept the union type
+``PossiblePointer<T> = T | number``, so you can pass either a wrapper
+instance *or* a raw numeric pointer. This avoids forcing an allocation
+just to call into the next wrapper — when you already have a pointer
+in hand (for example from a worklet message or another wrapper's
+``getPointer()``), pass it directly.
+
+Helpers, all exported from the package root:
+
++--------------------------------+----------------------------------------------------------+
+| Helper                         | Role                                                     |
++================================+==========================================================+
+| ``resolvePtr(value)``          | Coerce a ``PossiblePointer`` to a number — returns       |
+|                                | ``value`` if it's already numeric, ``value.getPointer()``|
+|                                | if it's a wrapper instance. Use this inside hot loops or |
+|                                | when calling raw WASM exports yourself.                  |
++--------------------------------+----------------------------------------------------------+
+| ``instance.getPointer()``      | Return the wrapper's underlying C++ pointer as a         |
+|                                | number. Symmetric to ``resolvePtr`` for the              |
+|                                | wrapper-to-pointer direction.                            |
++--------------------------------+----------------------------------------------------------+
+| ``instance.wrapPointer(Cls,    | Build a wrapper of class ``Cls`` around an existing      |
+| ptr)``                         | pointer, reusing ``this.wasmInstance``. Skips the C++    |
+|                                | constructor — useful for viewing C++ objects you don't   |
+|                                | own.                                                     |
++--------------------------------+----------------------------------------------------------+
+| ``Cls.createFromPointer(       | Static counterpart of ``wrapPointer`` for cases where    |
+| module, ptr)``                 | you don't have an existing wrapper handy (e.g.           |
+|                                | reconstructing a ``JSPrePostProcessor`` subclass on the  |
+|                                | worklet thread from ``state.prePostProcessorPtr``).      |
++--------------------------------+----------------------------------------------------------+
+
+.. _lifecycle-and-cleanup:
+
+Lifecycle and Cleanup
+---------------------
+
+Wrapper instances expose a ``destroy()`` method that frees the
+underlying C++ object via the corresponding ``_<class>_destroy`` C
+export. JavaScript has no destructors, so the GC won't call this for
+you — the C++ memory only goes away when ``destroy()`` runs. For a
+long-lived page that loads a model once and keeps inferring, the leak
+is harmless (the module stays alive for the session anyway); for apps
+that swap models, recreate handlers, or run under a test harness,
+``destroy()`` is what you call.
+
+Not every wrapper needs ``destroy()``, though. Whether a wrapper is
+*owning* depends on how it was created:
+
+* A wrapper from ``new SomeClass(...)`` runs the TS constructor,
+  which calls ``_<class>_create`` and stashes the fresh C++ pointer.
+  This wrapper is the only handle to that C++ object — calling
+  ``destroy()`` on it frees the object.
+* A wrapper from ``wrapPointer`` or ``createFromPointer`` skips the
+  TS constructor entirely; it's a view over a C++ object that was
+  allocated by somebody else (typically another wrapper, or the
+  inference worker). **Don't call ``destroy()`` on these** — doing so
+  would free a C++ object that other code is still pointing at.
+
+For example, ``InferenceConfig.getTensorInputShape()`` returns a
+``TensorShapeList`` view; the underlying storage belongs to the
+``InferenceConfig``, so you destroy the config, not the view.
+
+When you do tear down a full setup, free the handler before the
+config and processor it references — the handler holds pointers back
+into them, so freeing them first leaves it with dangling references:
+
+.. code-block:: typescript
+
+   inferenceHandler.destroy()   // first: holds refs into pp + config
+   ppProcessor.destroy()
+   inferenceConfig.destroy()    // last among the three
+   // ProcessingSpec, VectorModelData, VectorTensorShape, etc. can
+   // then be destroyed in any order.

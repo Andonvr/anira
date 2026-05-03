@@ -6,7 +6,8 @@ let _jsUrl: string | undefined
 let _wasmUrl: string | undefined
 
 const getJsUrl = () => (_jsUrl ??= new URL('../wasm/AniraWeb.js', import.meta.url).href)
-const getWasmUrl = () => (_wasmUrl ??= new URL('../wasm/AniraWeb.wasm', import.meta.url).href)
+const getWasmUrl = () =>
+  (_wasmUrl ??= new URL('../wasm/AniraWeb.wasm', import.meta.url).href)
 
 export { getWasmUrl }
 

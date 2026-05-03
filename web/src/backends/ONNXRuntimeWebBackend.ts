@@ -430,9 +430,7 @@ export class ONNXRuntimeWebBackend extends JSBackendBase {
           //   [symbolic name ptrs...][numeric dim values...]
           // For dynamic dims, the symbolic name ptr is non-zero and the
           // numeric slot is undefined. Use -1 for dynamic dims.
-          const symbolicNamePtr = Number(
-            ort.getValue(metadataPtr + 8 + d * ptrSize, '*')
-          )
+          const symbolicNamePtr = Number(ort.getValue(metadataPtr + 8 + d * ptrSize, '*'))
           if (symbolicNamePtr !== 0) {
             dims.push(-1)
           } else {
@@ -444,9 +442,7 @@ export class ONNXRuntimeWebBackend extends JSBackendBase {
 
         const staticDims = dims.filter((d) => d > 0)
         const flatSize =
-          staticDims.length === dims.length
-            ? staticDims.reduce((a, b) => a * b, 1)
-            : 0
+          staticDims.length === dims.length ? staticDims.reduce((a, b) => a * b, 1) : 0
         result.push({ namePtr, dims, flatSize })
       } finally {
         ort.stackRestore(stack)

@@ -74,8 +74,7 @@ export const createFactory = <
   wasmInstance: AniraWasmInstance,
   Cls: C
 ): Factory<C> => {
-  const factory = (...args: any[]) =>
-    new Cls(wasmInstance, ...args) as InstanceType<C>
+  const factory = (...args: any[]) => new Cls(wasmInstance, ...args) as InstanceType<C>
 
   factory.fromPointer = (ptr: number): InstanceType<C> => {
     const instance = Object.create(Cls.prototype)

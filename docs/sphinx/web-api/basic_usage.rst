@@ -186,6 +186,22 @@ handlers typically write directly through the ``PrePostProcessor``:
 The audio worklet thread reads the latest value at the start of each
 block.
 
+Cleanup
+-------
+
+Every anira-web wrapper exposes a ``destroy()`` method that frees the
+underlying C++ object. JavaScript's garbage collector does not call
+this for you — if you ``new`` a wrapper and never call ``destroy()``,
+the C++ memory leaks for the lifetime of the WebAssembly module. For
+single-model apps that load a model once and keep it running, this is
+harmless; if your app swaps models, recreates handlers, or runs inside
+a long-lived test harness, ``destroy()`` is what you call when you're
+done with each wrapper.
+
+See :doc:`architecture` for the full lifecycle story — which wrappers
+need ``destroy()``, which ones don't, and the order to tear them down
+in.
+
 .. _run-inference-in-javascript:
 
 (Optional) Run Inference in JavaScript

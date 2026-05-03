@@ -153,14 +153,16 @@ Pointer Arguments
 -----------------
 
 ``preProcess`` and ``postProcess`` receive ``PossiblePointer<...>``
-arguments that are raw WASM heap addresses. Use the ``resolvePtr``
-helper from ``anira-web`` to coerce them to numeric pointers, and the
-exported WASM functions on ``this.wasmInstance`` (e.g.
-``_vector_ring_buffer_get``, ``_vector_buffer_f_get``,
+arguments — either wrapper instances or raw WASM heap addresses. The
+:doc:`architecture` page covers the helpers (``resolvePtr``,
+``getPointer``, ``wrapPointer``) in full; the short version is to call
+``resolvePtr`` to get a numeric pointer, then call the exported WASM
+functions on ``this.wasmInstance`` (e.g. ``_vector_ring_buffer_get``,
+``_vector_buffer_f_get``,
 ``_prepostprocessor_pop_samples_from_buffer_window``) to manipulate
 buffers in place. The guitar-lstm and steerable-nafx demos in
-``anira-web-demo/src/`` show this pattern applied to real
-windowing logic.
+``anira-web-demo/src/`` show this pattern applied to real windowing
+logic.
 
 .. note::
    Calling the underscore-prefixed exports directly looks unusual at
