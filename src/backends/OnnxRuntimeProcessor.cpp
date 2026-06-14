@@ -33,7 +33,7 @@ void OnnxRuntimeProcessor::process(std::vector<BufferF>& input, std::vector<Buff
 
 OnnxRuntimeProcessor::Instance::Instance(InferenceConfig& inference_config) : m_memory_info(Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU)),
                                                                     m_inference_config(inference_config)
-#ifdef USE_ANIRA_WEB
+#ifdef __EMSCRIPTEN__
     , m_env(nullptr)
 {
      // Create threading options

@@ -17,25 +17,9 @@ option(ANIRA_WITH_LIBTORCH "Build with LibTorch backend" ON)
 option(ANIRA_WITH_ONNXRUNTIME "Build with ONNX Runtime backend" ON)
 option(ANIRA_WITH_TFLITE "Build with TensorFlow Lite backend" ON)
 
-option(ANIRA_BUILD_WASM "Build WebAssembly module (requires Emscripten toolchain)" OFF)
-
 option(ANIRA_WITH_LOGGING "Enable logging printouts" ON)
 option(ANIRA_WITH_RTSAN "Enable RealtimeSanitizer (rtan) checks (requires clang 20)" OFF)
 
-if(DEFINED EMSDK_VERSION)
-    set(DEFINED EMSDK_VERSION ON)
-    if(ANIRA_WITH_EXAMPLES)
-        message(FATAL_ERROR "WebAssembly support is not compatible with examples. Please disable ANIRA_WITH_EXAMPLES to build the library with WebAssembly support.")
-    elseif(ANIRA_WITH_TESTS)
-        message(FATAL_ERROR "WebAssembly support is not compatible with tests. Please disable ANIRA_WITH_TESTS to build the library with WebAssembly support.")
-    elseif(ANIRA_WITH_INSTALL)
-        message(FATAL_ERROR "WebAssembly support is not compatible with install targets. Please disable ANIRA_WITH_INSTALL to build the library with WebAssembly support.")
-    elseif(ANIRA_WITH_LIBTORCH)
-        message(FATAL_ERROR "Only the ONNX Runtime backend is supported for WebAssembly. Please set -DANIRA_WITH_LIBTORCH=OFF and enable ANIRA_WITH_ONNXRUNTIME to build the library with WebAssembly support.")
-    elseif(ANIRA_WITH_TFLITE)
-        message(FATAL_ERROR "Only the ONNX Runtime backend is supported for WebAssembly. Please set -DANIRA_WITH_TFLITE=OFF and enable ANIRA_WITH_ONNXRUNTIME to build the library with WebAssembly support.")
-    endif()
-endif()
 # ==============================================================================
 # Get project version from git
 # ==============================================================================
@@ -111,9 +95,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Detect Emscripten — must be after project() so CMAKE_CXX_COMPILER is set.
 # EMSDK_VERSION is needed by SetupOnnxRuntime.cmake below.
-if(ANIRA_BUILD_WASM)
-    include(cmake/DetectEmscripten.cmake)
-endif()
+include(cmake/DetectEmscripten.cmake)
 
 # ==============================================================================
 # Download and install the selected inference engines
@@ -224,7 +206,6 @@ target_compile_definitions(${PROJECT_NAME}
     # Backend-specific definitions
     $<$<BOOL:${ANIRA_WITH_LIBTORCH}>:USE_LIBTORCH>
     $<$<BOOL:${ANIRA_WITH_ONNXRUNTIME}>:USE_ONNXRUNTIME>
-    $<$<BOOL:EMSDK_VERSION>:USE_ANIRA_WEB>
     $<$<BOOL:${ANIRA_WITH_TFLITE}>:USE_TFLITE>
     $<$<BOOL:${ANIRA_WITH_LOGGING}>:ENABLE_LOGGING>
     # Version number
@@ -324,6 +305,17 @@ endif()
 # Build WebAssembly module (optional, requires Emscripten)
 # ==============================================================================
 
-if(ANIRA_BUILD_WASM)
+if(WASM)
+    if(ANIRA_WITH_EXAMPLES)
+        message(FATAL_ERROR "WebAssembly support is not compatible with examples. Please disable ANIRA_WITH_EXAMPLES to build the library with WebAssembly support.")
+    elseif(ANIRA_WITH_TESTS)
+        message(FATAL_ERROR "WebAssembly support is not compatible with tests. Please disable ANIRA_WITH_TESTS to build the library with WebAssembly support.")
+    elseif(ANIRA_WITH_INSTALL)
+        message(FATAL_ERROR "WebAssembly support is not compatible with install targets. Please disable ANIRA_WITH_INSTALL to build the library with WebAssembly support.")
+    elseif(ANIRA_WITH_LIBTORCH)
+        message(FATAL_ERROR "Only the ONNX Runtime backend is supported for WebAssembly. Please set -DANIRA_WITH_LIBTORCH=OFF and enable ANIRA_WITH_ONNXRUNTIME to build the library with WebAssembly support.")
+    elseif(ANIRA_WITH_TFLITE)
+        message(FATAL_ERROR "Only the ONNX Runtime backend is supported for WebAssembly. Please set -DANIRA_WITH_TFLITE=OFF and enable ANIRA_WITH_ONNXRUNTIME to build the library with WebAssembly support.")
+    endif()
     include(cmake/BuildWasm.cmake)
 endif()

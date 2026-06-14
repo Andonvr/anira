@@ -36,7 +36,6 @@
       "binaryDir": "${sourceDir}/build/Wasm/Debug",
       "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
       "cacheVariables": {
-        "ANIRA_BUILD_WASM": "ON",
         "ANIRA_WITH_LIBTORCH": "OFF",
         "ANIRA_WITH_TFLITE": "OFF",
         "ANIRA_WITH_ONNXRUNTIME": "ON",
@@ -51,7 +50,6 @@
       "binaryDir": "${sourceDir}/build/Wasm/Release",
       "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
       "cacheVariables": {
-        "ANIRA_BUILD_WASM": "ON",
         "ANIRA_WITH_LIBTORCH": "OFF",
         "ANIRA_WITH_TFLITE": "OFF",
         "ANIRA_WITH_ONNXRUNTIME": "ON",
