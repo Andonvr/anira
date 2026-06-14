@@ -52,6 +52,18 @@ export class AniraAudioWorkletBase extends AudioWorkletProcessor {
         ioConfig,
       } = message
 
+      // AudioWorkletGlobalScope does not expose `performance` as a
+      // global, but Emscripten needs it for std::chrono::steady_clock::now().
+      // Date.now() has ms resolution, which is sufficient for timeout deadlines.
+      if (typeof performance === 'undefined') {
+        ;(globalThis as any).performance = { now: () => Date.now() }
+        console.warn(
+          '[anira] performance is not defined in this AudioWorkletGlobalScope — ' +
+            'installed a Date.now() polyfill. blocking_ratio > 0 will work but uses ' +
+            'millisecond clock resolution instead of sub-millisecond.'
+        )
+      }
+
       const aniraWeb = await AniraWeb.create(
         {
           wasmBinary,
