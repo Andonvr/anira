@@ -1,6 +1,6 @@
 import { JSBackendBase } from './JSBackendBase'
 import { BufferF } from '../wrappers/utils/BufferF'
-import { VectorBufferF } from '../wrappers/Vectors'
+import { VectorBufferF, VectorInt64T, type TensorShapeList } from '../wrappers/Vectors'
 import { InferenceConfig } from '../wrappers/InferenceConfig'
 import { ModelData } from '../wrappers/ModelData'
 
@@ -44,12 +44,8 @@ export interface OrtWasmModule {
     inputCountOffset: number,
     outputCountOffset: number
   ): number
-  _OrtGetInputOutputMetadata(
-    sessionHandle: number,
-    index: number,
-    nameOffset: number,
-    metadataOffset: number
-  ): number
+  _OrtGetInputName(sessionHandle: number, index: number): number
+  _OrtGetOutputName(sessionHandle: number, index: number): number
   _OrtCreateTensor(
     dataType: number,
     data: number,
@@ -105,6 +101,76 @@ interface TensorMeta {
   namePtr: number
   dims: number[]
   flatSize: number
+}
+
+/**
+ * onnxruntime-web 1.19.2's Emscripten build doesn't export the `getValue` /
+ * `setValue` runtime helpers or the `PTR_SIZE` constant — those arrived with
+ * wasm64 support in 1.21+. This backend drives the ORT C API directly and
+ * relies on them, so we polyfill them onto the module after load. 1.19.2 is a
+ * wasm32 build, so pointers are 4 bytes and `i64` / `*` accesses reduce to
+ * 32-bit reads and writes. HEAP views are read fresh on each access so the
+ * polyfill stays correct across memory growth.
+ */
+function patchOrtRuntime(ort: OrtWasmModule): void {
+  if (ort.PTR_SIZE === undefined) {
+    ort.PTR_SIZE = 4 // wasm32
+  }
+
+  if (typeof ort.getValue !== 'function') {
+    ort.getValue = (ptr, type) => {
+      switch (type) {
+        case 'i1':
+        case 'i8':
+          return new Int8Array(ort.HEAPU8.buffer)[ptr]
+        case 'i16':
+          return new Int16Array(ort.HEAPU8.buffer)[ptr >> 1]
+        case 'i32':
+        case 'i64': // wasm32: low 32 bits
+          return ort.HEAP32[ptr >> 2]
+        case 'float':
+          return ort.HEAPF32[ptr >> 2]
+        case 'double':
+          return new Float64Array(ort.HEAPU8.buffer)[ptr >> 3]
+        case '*':
+          return ort.HEAPU32[ptr >> 2]
+        default:
+          throw new Error(`ORT getValue: unsupported type "${type}"`)
+      }
+    }
+  }
+
+  if (typeof ort.setValue !== 'function') {
+    ort.setValue = (ptr, value, type) => {
+      switch (type) {
+        case 'i1':
+        case 'i8':
+          new Int8Array(ort.HEAPU8.buffer)[ptr] = value
+          break
+        case 'i16':
+          new Int16Array(ort.HEAPU8.buffer)[ptr >> 1] = value
+          break
+        case 'i32':
+          ort.HEAP32[ptr >> 2] = value
+          break
+        case 'i64': // wasm32: low 32 bits, zero the high word
+          ort.HEAP32[ptr >> 2] = value
+          ort.HEAP32[(ptr >> 2) + 1] = 0
+          break
+        case 'float':
+          ort.HEAPF32[ptr >> 2] = value
+          break
+        case 'double':
+          new Float64Array(ort.HEAPU8.buffer)[ptr >> 3] = value
+          break
+        case '*':
+          ort.HEAPU32[ptr >> 2] = value
+          break
+        default:
+          throw new Error(`ORT setValue: unsupported type "${type}"`)
+      }
+    }
+  }
 }
 
 /**
@@ -164,7 +230,12 @@ export class ONNXRuntimeWebBackend extends JSBackendBase {
     }
 
     // --- Load ORT WASM module (shared singleton to avoid repeated memory allocs) ---
-    ortModulePromise ??= ortWasmFactory({ numThreads: 1 }) as Promise<OrtWasmModule>
+    ortModulePromise ??= (
+      ortWasmFactory({ numThreads: 1 }) as Promise<OrtWasmModule>
+    ).then((ort) => {
+      patchOrtRuntime(ort)
+      return ort
+    })
     this.ort = await ortModulePromise
     const ort = this.ort
 
@@ -227,8 +298,15 @@ export class ONNXRuntimeWebBackend extends JSBackendBase {
     )
     ort.stackRestore(countStack)
 
-    this.inputMeta = this.queryMetadata(ort, 0, inputCount)
-    this.outputMeta = this.queryMetadata(ort, inputCount, outputCount)
+    // onnxruntime-web 1.19.2 has no shape-metadata C-API, so tensor dims come
+    // from the anira InferenceConfig (per-backend shape, falling back to the
+    // universal shape). Names still come from ORT.
+    const tensorShape = config.getTensorShape(customBackend)
+    const inputShapes = this.readShapeList(tensorShape.getTensorInputShape())
+    const outputShapes = this.readShapeList(tensorShape.getTensorOutputShape())
+
+    this.inputMeta = this.queryMetadata(ort, true, inputCount, inputShapes)
+    this.outputMeta = this.queryMetadata(ort, false, outputCount, outputShapes)
 
     // --- Warm-up inference (non-fatal, matches C++ behaviour) ---
     // Skip warm-up when any input has dynamic dims — we can't construct a
@@ -401,67 +479,54 @@ export class ONNXRuntimeWebBackend extends JSBackendBase {
     return dims.map((d) => (d === -1 ? inferred : d))
   }
 
+  /**
+   * Build per-tensor metadata. Names come from ORT's 1.19.2 C-API
+   * (`_OrtGetInputName` / `_OrtGetOutputName`); dims come from the anira
+   * config shapes (1.19.2 exposes no shape-metadata function). Non-positive
+   * config dims are treated as dynamic (-1) and resolved from buffer sizes at
+   * process time.
+   */
   private queryMetadata(
     ort: OrtWasmModule,
-    startIndex: number,
-    count: number
+    isInput: boolean,
+    count: number,
+    shapes: number[][]
   ): TensorMeta[] {
-    const ptrSize = ort.PTR_SIZE
     const result: TensorMeta[] = []
 
     for (let i = 0; i < count; i++) {
-      const stack = ort.stackSave()
-      let metadataPtr = 0
-      try {
-        const buf = ort.stackAlloc(2 * ptrSize)
-        if (
-          ort._OrtGetInputOutputMetadata(
-            this.sessionHandle,
-            startIndex + i,
-            buf,
-            buf + ptrSize
-          ) !== 0
-        ) {
-          throw new Error(`Failed to get metadata for index ${startIndex + i}`)
-        }
-
-        const namePtr = Number(ort.getValue(buf, '*'))
-        metadataPtr = Number(ort.getValue(buf + ptrSize, '*'))
-
-        const elementType = ort.HEAP32[metadataPtr >> 2]
-        if (elementType === 0) {
-          result.push({ namePtr, dims: [], flatSize: 0 })
-          continue
-        }
-
-        const dimsCount = ort.HEAPU32[(metadataPtr >> 2) + 1]
-        const dims: number[] = []
-        for (let d = 0; d < dimsCount; d++) {
-          // ORT metadata has two arrays of dimsCount entries each:
-          //   [symbolic name ptrs...][numeric dim values...]
-          // For dynamic dims, the symbolic name ptr is non-zero and the
-          // numeric slot is undefined. Use -1 for dynamic dims.
-          const symbolicNamePtr = Number(ort.getValue(metadataPtr + 8 + d * ptrSize, '*'))
-          if (symbolicNamePtr !== 0) {
-            dims.push(-1)
-          } else {
-            dims.push(
-              Number(ort.getValue(metadataPtr + 8 + (d + dimsCount) * ptrSize, '*'))
-            )
-          }
-        }
-
-        const staticDims = dims.filter((d) => d > 0)
-        const flatSize =
-          staticDims.length === dims.length ? staticDims.reduce((a, b) => a * b, 1) : 0
-        result.push({ namePtr, dims, flatSize })
-      } finally {
-        ort.stackRestore(stack)
-        if (metadataPtr !== 0) ort._OrtFree(metadataPtr)
+      const namePtr = isInput
+        ? ort._OrtGetInputName(this.sessionHandle, i)
+        : ort._OrtGetOutputName(this.sessionHandle, i)
+      if (namePtr === 0) {
+        throw new Error(
+          `ONNXRuntimeWebBackend: failed to get ${isInput ? 'input' : 'output'} name at index ${i}`
+        )
       }
+
+      const dims = (shapes[i] ?? []).map((d) => (d > 0 ? d : -1))
+      const staticDims = dims.filter((d) => d > 0)
+      const flatSize =
+        staticDims.length === dims.length ? staticDims.reduce((a, b) => a * b, 1) : 0
+
+      result.push({ namePtr, dims, flatSize })
     }
 
     return result
+  }
+
+  /** Read an anira TensorShapeList (`vector<vector<int64>>`) into `number[][]`. */
+  private readShapeList(list: TensorShapeList): number[][] {
+    const shapes: number[][] = []
+    for (let i = 0; i < list.size(); i++) {
+      const inner = this.wrapPointer(VectorInt64T, list.get(i))
+      const dims: number[] = []
+      for (let d = 0; d < inner.size(); d++) {
+        dims.push(Number(inner.get(d)))
+      }
+      shapes.push(dims)
+    }
+    return shapes
   }
 
   private createZeroInputs(): number[] {
